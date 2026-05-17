@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package com.borizon.app.proto;
+
+option java_package = "com.borizon.app.proto";
+option java_multiple_files = true;
+
+// Theme selection
+enum BorizonTheme {
+  BORIZON_THEME_UNSPECIFIED = 0;
+  BORIZON_THEME_AUTO = 1;
+  BORIZON_THEME_LIGHT = 2;
+  BORIZON_THEME_DARK = 3;
+}
+
+// Model inference accelerator
+enum Accelerator {
+  ACCELERATOR_UNSPECIFIED = 0;
+  ACCELERATOR_AUTO = 1;
+  ACCELERATOR_CPU = 2;
+  ACCELERATOR_GPU = 3;
+  ACCELERATOR_NPU = 4;
+}
+
+// LLM generation config
+message ModelConfig {
+  float temperature = 1;
+  int32 top_k = 2;
+  float top_p = 3;
+  int32 max_tokens = 4;
+  bool enable_thinking = 5;
+}
+
+// Top-level settings message — all Borizon preferences in one schema
+message BorizonSettings {
+  // Onboarding
+  bool first_launch = 1;
+  string user_name = 2;
+  bool onboarding_complete = 3;
+  bool tos_accepted = 4;
+
+  // Biometric & security
+  bool biometric_enabled = 5;
+
+  // Feature flags
+  bool voice_enabled = 6;
+  bool wiki_enabled = 13;
+
+  // Stats
+  int32 reflection_count = 8;
+
+  // Theme
+  BorizonTheme theme = 9;
+
+  // Accelerator preference
+  Accelerator accelerator = 10;
+
+  // Model config
+  ModelConfig model_config = 11;
+
+  // Text input history (last 50 inputs)
+  repeated string text_input_history = 12;
+
+  // Wiki lint
+  int64 last_lint_timestamp = 14;
+
+  // Web search API key (user-provided, stored on-device only)
+  string brave_api_key = 15;
+
+  // Selected model variant ("E2B" or "E4B", default "E4B")
+  string selected_model = 16;
+}

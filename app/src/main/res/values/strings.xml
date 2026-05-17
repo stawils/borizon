@@ -1,0 +1,329 @@
+<resources>
+    <string name="app_name">Borizon</string>
+
+    <!-- Authentication -->
+    <string name="biometric_title">Unlock Borizon</string>
+    <string name="biometric_subtitle">Authenticate to access your reflections</string>
+    <string name="biometric_description">Borizon keeps your data private. Authenticate to access your AI assistant.</string>
+    <string name="biometric_error_no_hardware">No biometric hardware available</string>
+    <string name="biometric_error_hw_unavailable">Biometric hardware is currently unavailable</string>
+    <string name="biometric_error_none_enrolled">No biometrics enrolled. Please set up fingerprint or face unlock in device settings.</string>
+    <string name="biometric_error_auth_failed">Authentication failed. Please try again.</string>
+    <string name="biometric_not_recognized">Not recognized. Try again.</string>
+    <string name="biometric_app_tagline">Your private AI assistant</string>
+    <string name="biometric_data_stays">Your data stays on this device</string>
+    <string name="retry">Retry</string>
+
+    <!-- Navigation -->
+    <string name="nav_chat">Chat</string>
+    <string name="nav_memory">Memory</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Welcome / Splash -->
+    <string name="splash_tagline">YOUR PRIVATE ASSISTANT</string>
+    <string name="welcome_subtitle">Your private AI assistant</string>
+    <string name="welcome_body">A private space for learning and personal knowledge.\nPowered by AI that runs entirely on your device.\nNo cloud. No accounts. Just you.</string>
+    <string name="begin">Get Started</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome">Welcome to Borizon</string>
+    <string name="onboarding_intro">Your personal AI assistant.\nNo account. No cloud. Just you.</string>
+    <string name="onboarding_feature_private">Fully private</string>
+    <string name="onboarding_feature_ai">AI that learns your patterns</string>
+    <string name="onboarding_feature_offline">Works offline</string>
+    <string name="onboarding_name_prompt">What should Borizon call you?</string>
+    <string name="onboarding_name_privacy">Your name and data stay on this device.</string>
+    <string name="onboarding_name_placeholder">Your name</string>
+    <string name="onboarding_name_required">Please enter your name to continue</string>
+    <string name="onboarding_privacy_title">Your privacy is non-negotiable</string>
+    <string name="onboarding_privacy_data_title">Everything stays here</string>
+    <string name="onboarding_privacy_data_body">All your data, conversations, and knowledge base live only on this device.</string>
+    <string name="onboarding_privacy_bio_title">Biometric lock</string>
+    <string name="onboarding_privacy_bio_body">Only you can open Borizon. Fingerprint or face unlock.</string>
+    <string name="onboarding_privacy_control_title">Your data, your control</string>
+    <string name="onboarding_privacy_control_body">Delete everything anytime. No traces left behind.</string>
+    <string name="onboarding_ready_title">Ready to begin</string>
+    <string name="onboarding_ready_body">Borizon works best when you use it regularly.\nAsk questions, share ideas, or just explore.\nOver time, it builds a personal knowledge base.</string>
+    <string name="get_started">Get started</string>
+    <string name="back">Back</string>
+    <string name="enter_your_name">Enter your name</string>
+    <string name="next">Next</string>
+
+    <!-- Terms -->
+    <string name="tos_title">Terms &amp; License</string>
+    <string name="tos_intro">Before downloading the AI model, please review and accept the following:</string>
+    <string name="tos_gemma_title">Gemma Model License</string>
+    <string name="tos_gemma_body">By using Borizon, you agree to the Gemma Terms of Use.\nThis app uses the Gemma model under a non-commercial license for the Gemma 4 Good Hackathon.\nAll AI processing happens on your device. No data is sent to any server.</string>
+    <string name="tos_privacy_title">Privacy &amp; Data</string>
+    <string name="tos_privacy_body">• All conversations and data are stored locally on this device.\n• No data is transmitted to any server or third party.\n• You can delete all data at any time from Settings.\n• Biometric data is handled by the Android Keystore — we never access it directly.</string>
+    <string name="tos_accept">I Accept — Continue</string>
+    <string name="tos_decline">Decline</string>
+
+    <!-- Chat -->
+    <string name="chat_title">Borizon</string>
+    <string name="chat_placeholder">What\'s on your mind?</string>
+    <string name="chat_thinking">Borizon is thinking…</string>
+    <string name="chat_welcome">Hi. I\'m Borizon — your private, on-device AI assistant. Everything stays on this device.</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_skip">Skip</string>
+    <string name="chat_confirm">Confirm</string>
+    <string name="chat_yes">Yes</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+    <string name="chat_file_too_large">File too large (max 1MB)</string>
+    <string name="chat_document">document.txt</string>
+    <string name="chat_share">Share reflection</string>
+    <string name="chat_history">History</string>
+    <string name="chat_new_chat">New chat</string>
+    <string name="chat_model_config">Model config</string>
+    <string name="chat_full_image">Full image</string>
+    <string name="close">Close</string>
+    <string name="chat_pending_image">Pending image %1$d</string>
+    <string name="chat_remove_image">Remove image</string>
+    <string name="chat_remove_audio">Remove audio</string>
+    <string name="chat_send_audio">Send audio</string>
+    <string name="chat_error_title">Something went wrong</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="chat_suggestions_title">What can I help with?</string>
+    <string name="chat_suggestions_desc">Tap a suggestion or type your own message.</string>
+    <string name="chat_quick_actions">Quick actions</string>
+    <string name="chat_action_timer">Timer</string>
+    <string name="chat_action_timer_prompt">Set a timer for 10 minutes</string>
+    <string name="chat_action_call">Call</string>
+    <string name="chat_action_call_prompt">Call Mom</string>
+    <string name="chat_action_text">Text</string>
+    <string name="chat_action_text_prompt">Text John I\'m running late</string>
+    <string name="chat_action_search">Search</string>
+    <string name="chat_action_search_prompt">Search the web for</string>
+    <string name="chat_action_alerts">Alerts</string>
+    <string name="chat_action_alerts_prompt">What are my latest notifications?</string>
+    <string name="chat_action_open_app">Open app</string>
+    <string name="chat_action_open_app_prompt">Open Spotify</string>
+    <string name="chat_action_brain_dump">Brain dump</string>
+    <string name="chat_action_brain_dump_prompt">I have so much on my mind, help me organize it</string>
+    <string name="chat_input_history">Input history</string>
+    <string name="chat_attach">Attach</string>
+    <string name="chat_photo_gallery">Photo from gallery</string>
+    <string name="chat_attach_document">Attach document</string>
+    <string name="chat_take_photo">Take photo</string>
+    <string name="chat_listening">Listening…</string>
+    <string name="stop">Stop</string>
+    <string name="chat_today">Today</string>
+    <string name="chat_yesterday">Yesterday</string>
+    <string name="chat_you">You</string>
+    <string name="copy">Copy</string>
+    <string name="share">Share</string>
+    <string name="listen">Listen</string>
+    <string name="chat_loading_model">Loading model…</string>
+    <string name="chat_model_error">Model error</string>
+    <string name="chat_no_model">No model loaded</string>
+    <string name="chat_model_status">Model Status</string>
+    <string name="chat_model_backend">Running on %1$s</string>
+    <string name="chat_model_on_device">On-device inference. Your data stays private.</string>
+    <string name="chat_model_loading">Loading model into memory…</string>
+    <string name="chat_model_not_loaded">No model loaded. Download from Settings.</string>
+    <string name="ok">OK</string>
+    <string name="chat_thinking_active">Thinking…</string>
+    <string name="chat_thought_process">Thought process</string>
+    <string name="expand">Expand</string>
+    <string name="collapse">Collapse</string>
+    <string name="chat_shared_image">Shared image</string>
+    <string name="image">Image</string>
+    <string name="chat_recording_timer">%1$ds / 30s</string>
+    <string name="chat_cancel_recording">Cancel recording</string>
+    <string name="chat_stop_send">Stop and send</string>
+    <string name="chat_reinitializing">Reinitializing model…</string>
+    <string name="chat_configs_updated">Configs updated</string>
+    <string name="chat_arrow">→</string>
+    <string name="stopped">Stopped</string>
+    <string name="loading">Loading…</string>
+    <string name="blocked">Blocked</string>
+    <string name="exit_fullscreen">Exit fullscreen</string>
+
+    <!-- Thinking phases -->
+    <string name="phase_quick_1">Hmm</string>
+    <string name="phase_quick_2">Let me see</string>
+    <string name="phase_quick_3">Right</string>
+    <string name="phase_quick_4">Okay</string>
+    <string name="phase_quick_5">One moment</string>
+    <string name="phase_deep_1">Reflecting</string>
+    <string name="phase_deep_2">Finding focus</string>
+    <string name="phase_deep_3">Coming into view</string>
+    <string name="phase_deep_4">Gaining clarity</string>
+    <string name="phase_deep_5">Taking shape</string>
+    <string name="phase_deep_6">Looking deeper</string>
+    <string name="phase_care_1">Still with you</string>
+    <string name="phase_care_2">Being thorough</string>
+    <string name="phase_care_3">Almost in focus</string>
+    <string name="phase_care_4">Won\'t be long</string>
+    <string name="phase_care_5">Worth the wait</string>
+    <string name="phase_care_6">Putting it together</string>
+
+    <!-- Memory -->
+    <string name="memory_title">Memory</string>
+    <string name="memory_search">Search memories…</string>
+    <string name="memory_empty">No memories yet</string>
+    <string name="memory_no_results">No results</string>
+    <string name="memory_delete_title">Delete memory?</string>
+    <string name="memory_delete_body">This memory will be permanently deleted.</string>
+    <string name="delete">Delete</string>
+
+    <!-- Conversation Drawer -->
+    <string name="drawer_history">History</string>
+    <string name="drawer_new_conversation">New conversation</string>
+    <string name="drawer_search">Search…</string>
+    <string name="drawer_clear">Clear</string>
+    <string name="drawer_no_conversations">No conversations found</string>
+    <string name="drawer_delete_title">Delete conversation?</string>
+    <string name="drawer_delete_body">This conversation and all its messages will be permanently deleted.</string>
+    <string name="drawer_today">Today</string>
+    <string name="drawer_yesterday">Yesterday</string>
+    <string name="drawer_previous_7_days">Previous 7 Days</string>
+    <string name="drawer_older">Older</string>
+    <string name="drawer_just_now">Just now</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_privacy">Privacy &amp; Security</string>
+    <string name="settings_biometric_lock">Biometric Lock</string>
+    <string name="settings_biometric_desc">Require fingerprint or face to open</string>
+    <string name="settings_on_device_ai">On-Device AI</string>
+    <string name="settings_on_device_desc">Your data stays on this device</string>
+    <string name="settings_active">Active</string>
+    <string name="settings_section_permissions">Permissions</string>
+    <string name="settings_microphone">Microphone</string>
+    <string name="settings_mic_granted">Granted — voice input enabled</string>
+    <string name="settings_mic_needed">Required for voice input</string>
+    <string name="settings_calendar">Calendar</string>
+    <string name="settings_calendar_granted">Granted — calendar events readable</string>
+    <string name="settings_calendar_needed">Required to read your calendar</string>
+    <string name="settings_contacts">Contacts</string>
+    <string name="settings_contacts_granted">Granted — contacts searchable</string>
+    <string name="settings_contacts_needed">Required to search and create contacts</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_notif_granted">Granted — can post notifications</string>
+    <string name="settings_notif_needed">Required for reminders</string>
+    <string name="settings_read_notifications">Read Notifications</string>
+    <string name="settings_read_notif_granted">Granted — can read notifications</string>
+    <string name="settings_read_notif_needed">Opens system settings to enable</string>
+    <string name="settings_sms">SMS</string>
+    <string name="settings_sms_granted">Granted — can read messages</string>
+    <string name="settings_sms_needed">Required to read SMS messages</string>
+    <string name="settings_call_log">Call Log</string>
+    <string name="settings_call_log_granted">Granted — can read call history</string>
+    <string name="settings_call_log_needed">Required to read call log</string>
+    <string name="settings_section_web_search">Web Search</string>
+    <string name="settings_brave_api_key">Brave Search API Key</string>
+    <string name="settings_brave_not_configured">Not configured — web search disabled</string>
+    <string name="settings_brave_configured">Configured (tap to update)</string>
+    <string name="settings_brave_dialog_title">Brave Search API Key</string>
+    <string name="settings_brave_dialog_body">Enter your Brave Search API key to enable web search. Get a free key at brave.com/search/api (2,000 searches/month free).</string>
+    <string name="settings_brave_placeholder">BSA-xxxx-xxxx-…</string>
+    <string name="save">Save</string>
+    <string name="settings_section_data">Data</string>
+    <string name="settings_clear_all_data">Clear All Data</string>
+    <string name="settings_clear_desc">Delete all conversations and reflections</string>
+    <string name="settings_clear_dialog_title">Clear all data?</string>
+    <string name="settings_clear_dialog_body">All conversations, memories, reflections, and settings will be permanently deleted. This cannot be undone.</string>
+    <string name="settings_clear_everything">Clear everything</string>
+    <string name="settings_section_skills">Skills</string>
+    <string name="settings_manage_skills">Manage Skills</string>
+    <string name="settings_section_ai_model">AI Model</string>
+    <string name="settings_inference_engine">Inference Engine</string>
+    <string name="settings_model_config">Model Configuration</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_version_detail">1.0.0 • Gemma 4 Good Hackathon</string>
+    <string name="settings_about_body">Borizon is a private, on-device AI assistant.\nNo account. No cloud. No data collection.</string>
+    <string name="settings_model_loaded">Loaded and ready</string>
+    <string name="settings_model_downloaded">Downloaded</string>
+    <string name="settings_model_not_downloaded">Not downloaded</string>
+    <string name="settings_state_ready">Ready</string>
+    <string name="settings_state_loading">Loading</string>
+    <string name="settings_state_error">Error</string>
+    <string name="settings_state_idle">Idle</string>
+    <string name="settings_model_backend">Running on %1$s</string>
+    <string name="settings_state_needed">Needed</string>
+    <string name="settings_downloading">Downloading… %1$d%%</string>
+    <string name="settings_download_model">Download Model</string>
+    <string name="settings_delete_model">Delete Model</string>
+    <string name="granted">Granted</string>
+    <string name="grant">Grant</string>
+
+    <!-- Model Download -->
+    <string name="download_setting_up">Setting up your AI assistant</string>
+    <string name="download_model_ready">Model ready!</string>
+    <string name="download_preparing">Preparing download…</string>
+    <string name="download_downloading">Downloading AI model… %1$d%%</string>
+    <string name="download_once_note">This only happens once</string>
+    <string name="download_verifying">Verifying download…</string>
+    <string name="download_loading">Loading model into memory…</string>
+    <string name="download_may_take_moment">This may take a moment</string>
+
+    <!-- Benchmark -->
+    <string name="benchmark_title">Benchmark</string>
+    <string name="benchmark_desc">Measure on-device inference performance</string>
+    <string name="benchmark_tap_run">Tap Run to start benchmark</string>
+    <string name="benchmark_config">Configuration</string>
+    <string name="benchmark_prompt_tokens">Prompt tokens: %1$d</string>
+    <string name="benchmark_max_tokens">Max new tokens: %1$d</string>
+    <string name="benchmark_runs">Runs: %1$d</string>
+    <string name="benchmark_running">Running benchmark…</string>
+    <string name="benchmark_running_short">Running…</string>
+    <string name="benchmark_run_button">Run Benchmark</string>
+    <string name="benchmark_results">Results (%1$d runs)</string>
+    <string name="benchmark_prefill_speed">Prefill speed</string>
+    <string name="benchmark_decode_speed">Decode speed</string>
+    <string name="benchmark_ttft">TTFT</string>
+    <string name="benchmark_init_time">Init time</string>
+    <string name="benchmark_backend">Backend</string>
+    <string name="benchmark_how_it_works">How it works</string>
+    <string name="benchmark_how_body">Sends a prompt of the specified token length to the on-device model and measures how fast it responds. Each run warms up the KV cache, so later runs may be faster due to caching effects.</string>
+
+    <!-- Camera -->
+    <string name="camera_take_picture">Take a picture</string>
+    <string name="camera_flip">Flip camera</string>
+    <string name="camera_capture">Capture</string>
+
+    <!-- Input History -->
+    <string name="input_history_title">Recent Inputs</string>
+    <string name="input_history_clear">Clear</string>
+    <string name="input_history_empty">No recent inputs</string>
+
+    <!-- Model Config Sheet -->
+    <string name="model_config_title">Model Configuration</string>
+    <string name="model_config_note">Changes apply to the next response</string>
+    <string name="model_config_accelerator">Accelerator</string>
+    <string name="model_config_accelerator_desc">Hardware backend for inference</string>
+    <string name="model_config_thinking">Thinking Mode</string>
+    <string name="model_config_thinking_desc">Show reasoning before responding</string>
+    <string name="model_config_temperature">Temperature</string>
+    <string name="model_config_temperature_desc">Higher = more creative, Lower = more focused</string>
+    <string name="model_config_top_k">Top-K</string>
+    <string name="model_config_top_k_desc">Number of candidate tokens per step</string>
+    <string name="model_config_top_p">Top-P (nucleus sampling)</string>
+    <string name="model_config_top_p_desc">Probability threshold for token selection</string>
+    <string name="model_config_context">Context Length</string>
+    <string name="model_config_context_desc">Total context (input + output). Lower = less RAM, higher = longer conversations. Default: 3072</string>
+    <string name="apply">Apply</string>
+
+    <!-- Skill Manager Sheet -->
+    <string name="skills_title">Skills</string>
+    <string name="skills_import">Import Skills</string>
+    <string name="skills_folder">Folder</string>
+    <string name="skills_file">SKILL.md</string>
+    <string name="skills_import_desc">Import a SKILL.md file from any app. Folders can include a scripts/ subdirectory for JS skills.</string>
+
+    <!-- Tool Timeline -->
+    <string name="tool_view_details">View details</string>
+
+    <!-- Audio Playback -->
+    <string name="audio_pause">Pause</string>
+    <string name="audio_play">Play</string>
+
+    <!-- General -->
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="settings_waiting_for_model">Waiting for model</string>
+    <string name="settings_config_summary">Temp: %1$s • Top-K: %2$s • Top-P: %3$s</string>
+    <string name="chat_voice_input">Voice input (long-press to record clip)</string>
+    <string name="chat_fullscreen">Fullscreen</string>
+</resources>

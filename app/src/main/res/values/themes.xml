@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base application theme (bridges XML to Compose Material3) -->
+    <style name="Theme.Borizon" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <!-- Window background matches Deep Teal so there's no white flash before Compose renders -->
+        <item name="android:windowBackground">#0C1222</item>
+    </style>
+
+    <!-- Invisible system splash — same dark background as animated Compose splash.
+         No visible icon. Dismissed instantly via installSplashScreen().
+         On Android 12+ this prevents the default launcher-icon splash. -->
+    <style name="Theme.Borizon.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#0C1222</item>
+        <item name="windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+        <item name="postSplashScreenTheme">@style/Theme.Borizon</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+</resources>

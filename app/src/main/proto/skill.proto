@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package com.borizon.app.proto;
+
+option java_package = "com.borizon.app.proto";
+option java_multiple_files = true;
+
+// A single skill definition — parsed from SKILL.md and persisted in DataStore
+message Skill {
+  string name = 1;
+  string description = 2;
+  string instructions = 3;
+  bool built_in = 4;
+  bool selected = 5;
+  string import_dir_name = 6;
+}
+
+// Top-level container for all skills
+message Skills {
+  repeated Skill skills = 1;
+}
