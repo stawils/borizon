@@ -162,6 +162,16 @@ body{background:#050a0e;color:#e8f0f2;font-family:'DM Mono',monospace;overflow-x
   animation:phoneContourGlow 3s linear infinite}
 @keyframes phoneContourGlow{to{--phone-glow:360deg}}
 
+/* Phone scan line */
+.phone-scan::before{content:'';position:absolute;left:0;right:0;height:60px;z-index:10;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(0,229,199,.07),transparent);
+  animation:phoneScan 4s ease-in-out infinite}
+.phone-scan::after{content:'';position:absolute;left:0;right:0;height:2px;z-index:11;pointer-events:none;
+  background:linear-gradient(90deg,transparent 5%,rgba(0,229,199,.6) 25%,#00e5c7 50%,rgba(0,229,199,.6) 75%,transparent 95%);
+  box-shadow:0 0 10px 1px rgba(0,229,199,.4),0 0 30px 3px rgba(0,229,199,.12);
+  animation:phoneScan 4s ease-in-out infinite}
+@keyframes phoneScan{0%{top:-2px;opacity:0}4%{opacity:1}88%{opacity:.9}94%{opacity:0}100%{top:calc(100% + 2px);opacity:0}}
+
 /* Mouse glow follower */
 .mouse-glow{position:fixed;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(0,229,199,.06) 0%,transparent 70%);pointer-events:none;z-index:1;transform:translate(-50%,-50%);transition:left .3s ease,top .3s ease}
 
@@ -300,7 +310,7 @@ function Navbar(){
   const scrolled=scrollY>50;
   return<nav className={`fixed top-0 left-0 right-0 z-50 nav-glass ${scrolled?'bg-bz-bg/80 border-b border-bz-border':'bg-transparent border-b border-transparent'}`}>
     <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
-      <a href="#hero" className="flex items-center gap-1.5 font-syne font-800 text-xl tracking-widest text-bz-accent"><img src="img/borizon-logo-512.png" alt="" className="w-16 h-16 rounded"/>BORIZONE</a>
+      <a href="#hero" className="flex items-center gap-1.5 font-syne font-800 text-xl tracking-widest text-bz-accent"><img src="img/borizon-logo-512.png" alt="" className="w-16 h-16 rounded"/>BORIZON</a>
       <div className="hidden md:flex items-center gap-8">
         {links.map(([l,h])=><a key={h} href={`#${h}`} className="text-bz-muted hover:text-bz-accent transition-colors duration-300 text-xs tracking-widest uppercase font-mono">{l}</a>)}
         <a href="https://github.com/stawils/borizon" target="_blank" rel="noopener" className="text-bz-muted hover:text-bz-accent transition-colors duration-300"><IconGithub s={18}/></a>
@@ -499,7 +509,7 @@ function Skills(){
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <Reveal delay={100} direction="left">
           <div className="flex-shrink-0 hidden lg:flex justify-center">
-            <div className="phone-mockup w-[280px]">
+            <div className="phone-mockup phone-scan w-[280px]">
               <img src="img/02.jpeg" alt="Borizon Skills Interface"/>
             </div>
           </div>
@@ -688,7 +698,7 @@ function Footer(){
     <div className="max-w-7xl mx-auto px-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
         <div className="md:col-span-2">
-          <div className="flex items-center gap-1.5 mb-4"><img src="img/borizon-logo-512.png" alt="" className="w-16 h-16 rounded"/><span className="font-syne font-800 text-2xl tracking-widest text-bz-accent">BORIZONE</span></div>
+          <div className="flex items-center gap-1.5 mb-4"><img src="img/borizon-logo-512.png" alt="" className="w-16 h-16 rounded"/><span className="font-syne font-800 text-2xl tracking-widest text-bz-accent">BORIZON</span></div>
           <p className="text-bz-muted text-sm leading-relaxed max-w-md">Privacy-first, on-device AI assistant for Android. The intelligence that never phones home. Built with ReflectAgent, hardware encryption, and 14 autonomous tools.</p>
         </div>
         <div>
