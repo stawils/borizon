@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Borizon — The Intelligence That Never Phones Home</title>
+<link rel="icon" type="image/png" href="img/borizon-logo-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+tailwind.config={theme:{extend:{colors:{bz:{bg:'#050a0e',surface:'#0a1118',card:'#0d1a24',cardHover:'#112230',border:'#1a2d3a',text:'#e8f0f2',muted:'#6b8a99',accent:'#00e5c7',accentDim:'#00b4a0',glow:'rgba(0,229,199,0.15)',danger:'#ff3366'}},fontFamily:{syne:['Syne','sans-serif'],mono:['DM Mono','monospace']}}}}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+::selection{background:#00e5c7;color:#050a0e}
+html{scroll-behavior:smooth}
+body{background:#050a0e;color:#e8f0f2;font-family:'DM Mono',monospace;overflow-x:hidden}
+
+/* Grid Background */
+.grid-bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(0,229,199,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,229,199,0.03) 1px,transparent 1px);
+  background-size:60px 60px;
+  animation:gridPulse 8s ease-in-out infinite}
+@keyframes gridPulse{0%,100%{opacity:.5}50%{opacity:1}}
+
+/* Glow Orbs */
+.glow-orb{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;animation:orbFloat 20s ease-in-out infinite}
+.glow-orb-1{width:400px;height:400px;background:rgba(0,229,199,0.06);top:10%;left:-5%;animation-delay:0s}
+.glow-orb-2{width:350px;height:350px;background:rgba(0,229,199,0.04);top:50%;right:-8%;animation-delay:-7s}
+.glow-orb-3{width:300px;height:300px;background:rgba(0,180,160,0.05);bottom:10%;left:30%;animation-delay:-14s}
+@keyframes orbFloat{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(30px,-40px) scale(1.05)}50%{transform:translate(-20px,30px) scale(.95)}75%{transform:translate(40px,20px) scale(1.02)}}
+
+/* Particles */
+.particle{position:absolute;width:2px;height:2px;background:#00e5c7;border-radius:50%;opacity:0;animation:particleFloat linear infinite}
+@keyframes particleFloat{0%{opacity:0;transform:translateY(0) scale(0)}10%{opacity:.6;transform:scale(1)}90%{opacity:.3}100%{opacity:0;transform:translateY(-100vh) scale(.5)}}
+
+/* Glitch Effect */
+.glitch-wrap{position:relative;display:inline-block}
+.glitch-main{position:relative;z-index:2}
+.glitch-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.glitch-a{animation:glitchA 4s infinite linear;color:#00e5c7;clip-path:polygon(0 0,100% 0,100% 35%,0 35%)}
+.glitch-b{animation:glitchB 4s infinite linear;color:#ff3366;clip-path:polygon(0 65%,100% 65%,100% 100%,0 100%)}
+@keyframes glitchA{0%,92%,100%{transform:translate(0)}93%{transform:translate(-3px,1px)}95%{transform:translate(3px,-1px)}97%{transform:translate(-2px,2px)}}
+@keyframes glitchB{0%,90%,100%{transform:translate(0)}91%{transform:translate(3px,-1px)}94%{transform:translate(-3px,1px)}96%{transform:translate(2px,-2px)}}
+
+/* Reveal Animations */
+.reveal{opacity:0;transform:translateY(40px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-left{opacity:0;transform:translateX(-40px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
+.reveal-left.visible{opacity:1;transform:translateX(0)}
+.reveal-right{opacity:0;transform:translateX(40px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
+.reveal-right.visible{opacity:1;transform:translateX(0)}
+.reveal-scale{opacity:0;transform:scale(.9);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
+.reveal-scale.visible{opacity:1;transform:scale(1)}
+
+/* Hero Entrance */
+.hero-title{animation:heroIn 1.2s cubic-bezier(.16,1,.3,1) both}
+.hero-sub{animation:heroIn 1.2s cubic-bezier(.16,1,.3,1) .3s both}
+.hero-desc{animation:heroIn 1.2s cubic-bezier(.16,1,.3,1) .5s both}
+.hero-stats{animation:heroIn 1.2s cubic-bezier(.16,1,.3,1) .7s both}
+.hero-cta{animation:heroIn 1.2s cubic-bezier(.16,1,.3,1) .9s both}
+@keyframes heroIn{0%{opacity:0;transform:translateY(50px) scale(.97);filter:blur(8px)}100%{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}}
+
+/* Card 3D Tilt */
+.tilt-card{transition:transform .4s cubic-bezier(.16,1,.3,1),box-shadow .4s ease,border-color .4s ease;transform-style:preserve-3d;will-change:transform}
+.tilt-card:hover{border-color:rgba(0,229,199,.3)!important}
+
+/* Sonar Pulse */
+.sonar{position:relative}
+.sonar::after{content:'';position:absolute;top:50%;left:50%;width:0;height:0;border-radius:50%;border:1px solid rgba(0,229,199,.4);transform:translate(-50%,-50%);animation:sonarPing 3s ease-out infinite;pointer-events:none}
+@keyframes sonarPing{0%{width:0;height:0;opacity:1}100%{width:120px;height:120px;opacity:0}}
+
+/* SVG Draw */
+.svg-draw path,.svg-draw line,.svg-draw circle,.svg-draw rect,.svg-draw polyline,.svg-draw polygon{stroke-dasharray:100;stroke-dashoffset:100;transition:stroke-dashoffset 1.5s cubic-bezier(.16,1,.3,1)}
+.svg-draw.visible path,.svg-draw.visible line,.svg-draw.visible circle,.svg-draw.visible rect,.svg-draw.visible polyline,.svg-draw.visible polygon{stroke-dashoffset:0}
+
+/* Scanning Line */
+.scan-line{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,229,199,.4),transparent);animation:scanDown 4s ease-in-out infinite;pointer-events:none;z-index:2}
+@keyframes scanDown{0%{top:-2px;opacity:0}5%{opacity:1}95%{opacity:1}100%{top:calc(100% + 2px);opacity:0}}
+
+/* Tab Content */
+.tab-content{transition:opacity .3s ease,transform .3s ease}
+.tab-content.entering{opacity:0;transform:translateY(10px)}
+.tab-content.active{opacity:1;transform:translateY(0)}
+
+/* Copy Feedback */
+.copy-btn{transition:all .3s ease}
+.copy-btn.copied{background:#00e5c7!important;color:#050a0e!important}
+
+/* Nav Glass */
+.nav-glass{backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);transition:background .3s ease,border-color .3s ease}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:#050a0e}
+::-webkit-scrollbar-thumb{background:#1a2d3a;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#00e5c7}
+
+/* Comparison highlight */
+.compare-highlight{background:rgba(0,229,199,.05);border-left:3px solid #00e5c7}
+
+/* Accent underline animation */
+.accent-line{height:2px;background:linear-gradient(90deg,transparent,#00e5c7,transparent);animation:lineGlow 3s ease-in-out infinite}
+@keyframes lineGlow{0%,100%{opacity:.3;transform:scaleX(.5)}50%{opacity:1;transform:scaleX(1)}}
+
+/* Breathing border */
+.breathe-border{animation:breathe 4s ease-in-out infinite}
+@keyframes breathe{0%,100%{border-color:rgba(0,229,199,.1)}50%{border-color:rgba(0,229,199,.25)}}
+
+/* Typing cursor */
+.typing-cursor::after{content:'_';animation:blink 1s step-end infinite;color:#00e5c7}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Phone mockup */
+.phone-mockup{position:relative;border-radius:24px;overflow:hidden;border:2px solid rgba(0,229,199,0.15);box-shadow:0 0 60px rgba(0,229,199,0.12),0 20px 60px rgba(0,0,0,0.5);animation:heroIn 1.2s cubic-bezier(.16,1,.3,1) .5s both}
+.phone-mockup img{display:block;width:100%;height:auto;-webkit-mask-image:linear-gradient(to bottom,rgba(0,229,199,0.15) 0%,black 10%,black 85%,transparent 100%);mask-image:linear-gradient(to bottom,rgba(0,229,199,0.15) 0%,black 10%,black 85%,transparent 100%)}
+
+/* Mouse glow follower */
+.mouse-glow{position:fixed;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(0,229,199,.06) 0%,transparent 70%);pointer-events:none;z-index:1;transform:translate(-50%,-50%);transition:left .3s ease,top .3s ease}
+
+/* Toast */
+.toast{animation:toastIn .4s cubic-bezier(.16,1,.3,1) both}
+@keyframes toastIn{0%{opacity:0;transform:translateY(20px) scale(.95)}100%{opacity:1;transform:translateY(0) scale(1)}}
+.toast-out{animation:toastOut .3s ease both}
+@keyframes toastOut{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-10px)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback,useMemo}=React;
+
+/* ─── Hooks ─── */
+function useInView(opts={}){
+  const ref=useRef(null);
+  const[visible,setVisible]=useState(false);
+  useEffect(()=>{
+    const el=ref.current;if(!el)return;
+    const obs=new IntersectionObserver(([e])=>{if(e.isIntersecting){setVisible(true);if(!opts.repeat)obs.unobserve(el)}},opts);
+    obs.observe(el);return()=>obs.disconnect();
+  },[]);
+  return[ref,visible];
+}
+
+function useScrollY(){
+  const[y,setY]=useState(0);
+  useEffect(()=>{const h=()=>setY(window.scrollY);window.addEventListener('scroll',h,{passive:true});return()=>window.removeEventListener('scroll',h)},[]);
+  return y;
+}
+
+function useCounter(end,duration=2000,start=0){
+  const[val,setVal]=useState(start);
+  const[ref,vis]=useInView();
+  useEffect(()=>{
+    if(!vis)return;let st=null;
+    const step=ts=>{if(!st)st=ts;const p=Math.min((ts-st)/duration,1);setVal(Math.floor(start+(end-start)*p));if(p<1)requestAnimationFrame(step)};
+    requestAnimationFrame(step);
+  },[vis,end,duration,start]);
+  return[val,ref];
+}
+
+/* ─── SVG Icons ─── */
+function IconAgent({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><line x1="12" y1="7.5" x2="5" y2="16.5"/><line x1="12" y1="7.5" x2="19" y2="16.5"/><line x1="7.5" y1="19" x2="16.5" y2="19"/></svg>}
+function IconShield({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z"/><rect x="9" y="10" width="6" height="5" rx="1"/><circle cx="12" cy="10" r="1.5"/></svg>}
+function IconDatabase({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/></svg>}
+function IconCompress({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>}
+function IconToolbox({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>}
+function IconChip({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/><line x1="9" y1="2" x2="9" y2="6"/><line x1="15" y1="2" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="22"/><line x1="15" y1="18" x2="15" y2="22"/><line x1="2" y1="9" x2="6" y2="9"/><line x1="2" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="22" y2="9"/><line x1="18" y1="15" x2="22" y2="15"/></svg>}
+function IconCheck({s=18}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#00e5c7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 12 9 17 20 6"/></svg>}
+function IconCross({s=18}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#6b8a99" strokeWidth="2" strokeLinecap="round"><line x1="7" y1="7" x2="17" y2="17"/><line x1="17" y1="7" x2="7" y2="17"/></svg>}
+function IconArrow({s=14}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>}
+function IconDownload({s=20}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>}
+function IconPlay({s=20}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/></svg>}
+function IconTerminal({s=20}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>}
+function IconCopy({s=18}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>}
+function IconGithub({s=20}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>}
+function IconExternal({s=16}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>}
+function IconMenu({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>}
+function IconClose({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>}
+function IconLock({s=18}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
+function IconFingerprint({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/><path d="M5 19.5C5.5 18 6 15 6 12c0-.7.12-1.37.34-2"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"/></svg>}
+function IconApps({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>}
+function IconFolder({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>}
+function IconBell({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>}
+function IconContact({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
+function IconCalendar({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}
+function IconGlobe({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>}
+function IconSettings({s=24}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>}
+function IconArrowRight({s=12}){return<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>}
+
+/* ─── Reveal Wrapper ─── */
+function Reveal({children,delay=0,direction='up',className='',repeat=false}){
+  const[ref,vis]=useInView({threshold:.1,repeat});
+  const cls=direction==='left'?'reveal-left':direction==='right'?'reveal-right':direction==='scale'?'reveal-scale':'reveal';
+  return<div ref={ref} className={`${cls} ${vis?'visible':''} ${className}`} style={{transitionDelay:`${delay}ms`}}>{children}</div>;
+}
+
+/* ─── Particle Field ─── */
+function ParticleField(){
+  const particles=useMemo(()=>Array.from({length:20},(_,i)=>({
+    id:i,left:`${Math.random()*100}%`,animDur:`${8+Math.random()*12}s`,delay:`${Math.random()*10}s`,size:`${1+Math.random()*2}px`,opacity:.2+Math.random()*.4
+  })),[]);
+  return<div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+    {particles.map(p=><div key={p.id} className="particle" style={{left:p.left,bottom:'-10px',width:p.size,height:p.size,animationDuration:p.animDur,animationDelay:p.delay,opacity:p.opacity}}/>)}
+  </div>;
+}
+
+/* ─── Mouse Glow ─── */
+function MouseGlow(){
+  const[pos,setPos]=useState({x:-500,y:-500});
+  useEffect(()=>{
+    const h=e=>setPos({x:e.clientX,y:e.clientY});
+    window.addEventListener('mousemove',h);return()=>window.removeEventListener('mousemove',h);
+  },[]);
+  return<div className="mouse-glow hidden lg:block" style={{left:pos.x,top:pos.y}}/>;
+}
+
+/* ─── Toast ─── */
+function Toast({message,onDone}){
+  const[out,setOut]=useState(false);
+  useEffect(()=>{const t1=setTimeout(()=>setOut(true),2000);const t2=setTimeout(()=>onDone(),2400);return()=>{clearTimeout(t1);clearTimeout(t2)}},[]);
+  return<div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-5 py-3 rounded-lg bg-bz-card border border-bz-accent/30 text-bz-accent font-mono text-sm ${out?'toast-out':'toast'}`}>{message}</div>;
+}
+
+/* ─── 3D Tilt Card ─── */
+function TiltCard({children,className=''}){
+  const cardRef=useRef(null);
+  const handleMove=useCallback(e=>{
+    const c=cardRef.current;if(!c)return;
+    const r=c.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width-.5;
+    const y=(e.clientY-r.top)/r.height-.5;
+    c.style.transform=`perspective(800px) rotateY(${x*8}deg) rotateX(${-y*8}deg) scale(1.02)`;
+  },[]);
+  const handleLeave=useCallback(()=>{
+    const c=cardRef.current;if(!c)return;
+    c.style.transform='perspective(800px) rotateY(0) rotateX(0) scale(1)';
+  },[]);
+  return<div ref={cardRef} className={`tilt-card ${className}`} onMouseMove={handleMove} onMouseLeave={handleLeave}>{children}</div>;
+}
+
+/* ─── Navbar ─── */
+function Navbar(){
+  const scrollY=useScrollY();
+  const[open,setOpen]=useState(false);
+  const links=[['Architecture','arch'],['Privacy','privacy'],['Tools','tools'],['Models','models'],['Compare','compare'],['Install','install']];
+  const scrolled=scrollY>50;
+  return<nav className={`fixed top-0 left-0 right-0 z-50 nav-glass ${scrolled?'bg-bz-bg/80 border-b border-bz-border':'bg-transparent border-b border-transparent'}`}>
+    <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
+      <a href="#hero" className="flex items-center gap-2.5 font-syne font-800 text-xl tracking-widest text-bz-accent"><img src="img/borizon-logo-512.png" alt="" className="w-8 h-8 rounded-sm"/>BORIZONE</a>
+      <div className="hidden md:flex items-center gap-8">
+        {links.map(([l,h])=><a key={h} href={`#${h}`} className="text-bz-muted hover:text-bz-accent transition-colors duration-300 text-xs tracking-widest uppercase font-mono">{l}</a>)}
+        <a href="https://github.com/stawils/borizon" target="_blank" rel="noopener" className="text-bz-muted hover:text-bz-accent transition-colors duration-300"><IconGithub s={18}/></a>
+      </div>
+      <button onClick={()=>setOpen(!open)} className="md:hidden text-bz-muted">{open?<IconClose/>:<IconMenu/>}</button>
+    </div>
+    {open&&<div className="md:hidden bg-bz-surface/95 border-b border-bz-border px-6 pb-4">
+      {links.map(([l,h])=><a key={h} href={`#${h}`} onClick={()=>setOpen(false)} className="block py-2 text-bz-muted hover:text-bz-accent text-xs tracking-widest uppercase font-mono">{l}</a>)}
+      <a href="https://github.com/stawils/borizon" target="_blank" rel="noopener" className="block py-2 text-bz-muted hover:text-bz-accent text-xs tracking-widest uppercase font-mono flex items-center gap-2">GitHub <IconExternal/></a>
+    </div>}
+  </nav>;
+}
+
+/* ─── Hero ─── */
+function Hero(){
+  const stats=[{val:14,label:'Tools'},{val:2,label:'Model Tiers'},{val:0,label:'Cloud Calls'},{val:100,label:'% Local',suffix:'%'}];
+  return<section id="hero" className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
+    <div className="glow-orb glow-orb-1"/><div className="glow-orb glow-orb-2"/><div className="glow-orb glow-orb-3"/>
+    <div className="relative z-10 max-w-7xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+      <div className="flex-1 text-center lg:text-left">
+        <div className="hero-title mb-4">
+          <img src="img/borizon-logo-512.png" alt="Borizon Logo" className="w-20 h-20 sm:w-24 sm:h-24 mx-auto lg:mx-0 mb-6 rounded-2xl" style={{filter:'drop-shadow(0 0 40px rgba(0,229,199,0.35))'}}/>
+          <h1 className="font-syne font-800 text-6xl sm:text-7xl md:text-8xl lg:text-9xl tracking-tight leading-none">
+            <span className="glitch-wrap">
+              <span className="glitch-main text-bz-text">BORI</span><span className="glitch-layer glitch-a" aria-hidden="true">BORI</span><span className="glitch-layer glitch-b" aria-hidden="true">BORI</span>
+            </span>
+            <span className="text-bz-accent">ZONE</span>
+          </h1>
+        </div>
+        <p className="hero-sub font-syne font-500 text-xl sm:text-2xl md:text-3xl text-bz-muted mb-4 tracking-wide">The Intelligence That Never Phones Home</p>
+        <p className="hero-desc text-bz-muted/70 max-w-2xl mx-auto lg:mx-0 mb-10 text-sm md:text-base leading-relaxed">
+          Privacy-first, on-device AI assistant for Android. Purpose-built ReflectAgent with ReAct loop, hardware-encrypted memory, and 14 autonomous tools — all running locally on your device.
+        </p>
+        <div className="hero-stats grid grid-cols-2 md:grid-cols-4 gap-4 max-w-xl mx-auto lg:mx-0 mb-12">
+          {stats.map((s,i)=><StatCard key={i} {...s} delay={i*150}/>)}
+        </div>
+        <div className="hero-cta flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+          <a href="https://github.com/stawils/borizon/releases" target="_blank" rel="noopener" className="group inline-flex items-center gap-3 px-8 py-4 bg-bz-accent text-bz-bg font-syne font-700 text-sm tracking-widest uppercase hover:bg-bz-text transition-all duration-300 rounded-sm">
+            <IconDownload s={18}/> Download APK
+          </a>
+          <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener" className="group inline-flex items-center gap-3 px-8 py-4 border border-bz-border text-bz-muted font-syne font-600 text-sm tracking-widest uppercase hover:border-bz-accent hover:text-bz-accent transition-all duration-300 rounded-sm">
+            <IconPlay s={18}/> Watch Demo
+          </a>
+        </div>
+      </div>
+      <div className="hero-cta flex-shrink-0 hidden lg:block" style={{animation:'heroIn 1.2s cubic-bezier(.16,1,.3,1) .5s both'}}>
+        <div className="phone-mockup w-[280px]">
+          <img src="img/phone-mockup.jpeg" alt="Borizon App Interface"/>
+        </div>
+      </div>
+    </div>
+    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6b8a99" strokeWidth="1.5"><polyline points="6 9 12 15 18 9"/></svg></div>
+  </section>;
+}
+
+function StatCard({val,label,suffix='',delay=0}){
+  const[count,ref]=useCounter(val,2000+delay);
+  return<div ref={ref} className="text-center p-4 border border-bz-border/50 bg-bz-card/50 rounded-sm" style={{animationDelay:`${.7+delay/1000}s`}}>
+    <div className="font-syne font-800 text-3xl md:text-4xl text-bz-accent">{count}{suffix}</div>
+    <div className="font-mono text-xs text-bz-muted tracking-widest uppercase mt-1">{label}</div>
+  </div>;
+}
+
+/* ─── Architecture ─── */
+function Architecture(){
+  const features=[
+    {icon:<IconAgent s={28}/>,title:'ReflectAgent',desc:'Purpose-built ReAct loop for structured reasoning and action planning — entirely on your device. No cloud, no callbacks.'},
+    {icon:<IconShield s={28}/>,title:'Hardened Privacy',desc:'SQLCipher encryption bound to your device\'s hardware security chip, locked with biometric authentication. Unbreakable by design.'},
+    {icon:<IconDatabase s={28}/>,title:'Long-Term Memory',desc:'Personal database with time-decay relevance ranking. Your AI remembers what matters, when it matters — only for you.'},
+    {icon:<IconCompress s={28}/>,title:'ContextCompactor',desc:'Proactive conversation compression manages on-device memory without cloud summarization. Every token stays local.'},
+    {icon:<IconToolbox s={28}/>,title:'Tool Ecosystem',desc:'14 distinct tools: app control, file browsing, sandboxed terminal, notification history, contacts, and more.'},
+    {icon:<IconChip s={28}/>,title:'Dual Model Tiers',desc:'Gemma 4 E2B for mid-range and E4B for flagship devices. Optimized inference for every RAM capacity.'},
+  ];
+  return<section id="arch" className="relative py-32 z-10">
+    <div className="max-w-7xl mx-auto px-6">
+      <Reveal><p className="font-mono text-xs text-bz-accent tracking-[.3em] uppercase mb-4">Architecture</p></Reveal>
+      <Reveal delay={100}><h2 className="font-syne font-800 text-4xl md:text-5xl tracking-tight mb-4">Built Different.</h2></Reveal>
+      <Reveal delay={200}><p className="text-bz-muted max-w-2xl mb-16 text-sm leading-relaxed">While others piece together local privacy from standard components, Borizon builds its entire architecture around it — from the agent loop to the encryption layer.</p></Reveal>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {features.map((f,i)=>(
+          <Reveal key={i} delay={i*100} direction="scale">
+            <TiltCard className="p-8 border border-bz-border bg-bz-card/60 rounded-sm h-full sonar group cursor-default">
+              <div className="text-bz-accent mb-5 group-hover:scale-110 transition-transform duration-500">{f.icon}</div>
+              <h3 className="font-syne font-700 text-lg mb-3 group-hover:text-bz-accent transition-colors duration-300">{f.title}</h3>
+              <p className="text-bz-muted text-sm leading-relaxed">{f.desc}</p>
+            </TiltCard>
+          </Reveal>
+        ))}
+      </div>
+    </div>
+  </section>;
+}
+
+/* ─── Privacy ─── */
+function Privacy(){
+  const features=[
+    ['SQLCipher Encryption','All data at rest encrypted with military-grade SQLCipher'],
+    ['Hardware Security Chip','Encryption keys bound to device TEE — cannot be extracted'],
+    ['Biometric Lock','App locked behind fingerprint/face authentication'],
+    ['Zero Cloud Dependency','No server calls, no API requests, no data leaves device'],
+    ['No Telemetry','Zero analytics, tracking, or phone-home behavior'],
+    ['Sandboxed Execution','Terminal and tools run in isolated sandbox environment'],
+  ];
+  return<section id="privacy" className="relative py-32 z-10">
+    <div className="max-w-7xl mx-auto px-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+        <div>
+          <Reveal><p className="font-mono text-xs text-bz-accent tracking-[.3em] uppercase mb-4">Privacy</p></Reveal>
+          <Reveal delay={100}><h2 className="font-syne font-800 text-4xl md:text-5xl tracking-tight mb-4">Privacy by Architecture.<br/><span className="text-bz-muted">Not Policy.</span></h2></Reveal>
+          <Reveal delay={200}><p className="text-bz-muted text-sm leading-relaxed mb-8">Most assistants promise privacy through legal documents. Borizon guarantees it through mathematical certainty — encryption tied to physical hardware that no server can override.</p></Reveal>
+          <Reveal delay={300}>
+            <div className="flex items-center gap-4 p-5 border border-bz-accent/20 bg-bz-accent/5 rounded-sm">
+              <IconLock s={24}/>
+              <div>
+                <div className="font-syne font-700 text-bz-accent text-sm">Unbreakable by Design</div>
+                <div className="text-bz-muted text-xs mt-1">Even if the device is compromised, data cannot be decrypted without the hardware key + biometric</div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+        <div className="space-y-4">
+          {features.map(([t,d],i)=>(
+            <Reveal key={i} delay={i*80} direction="right">
+              <div className="flex gap-4 p-4 border border-bz-border/50 bg-bz-card/40 rounded-sm group hover:border-bz-accent/30 transition-colors duration-300">
+                <div className="mt-0.5 flex-shrink-0"><IconCheck s={18}/></div>
+                <div>
+                  <div className="font-syne font-600 text-sm group-hover:text-bz-accent transition-colors duration-300">{t}</div>
+                  <div className="text-bz-muted text-xs mt-1">{d}</div>
+                </div>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>;
+}
+
+/* ─── Tools ─── */
+function Tools(){
+  const categories=[
+    {icon:<IconApps s={24}/>,title:'App Control',items:['Launch applications','Switch between apps','Query app info']},
+    {icon:<IconFolder s={24}/>,title:'File Browser',items:['Navigate directories','Read file contents','Search files']},
+    {icon:<IconTerminal s={24}/>,title:'Sandboxed Terminal',items:['Execute shell commands','Isolated execution','Output capture']},
+    {icon:<IconBell s={24}/>,title:'Notifications',items:['Read notification history','Summarize alerts','Filter by app']},
+    {icon:<IconContact s={24}/>,title:'Contacts',items:['Search contact info','Retrieve details','Phone & email']},
+    {icon:<IconCalendar s={24}/>,title:'Calendar',items:['Read events','Manage schedule','Set reminders']},
+    {icon:<IconGlobe s={24}/>,title:'Web & Search',items:['Local search','Content extraction','URL handling']},
+    {icon:<IconSettings s={24}/>,title:'System Info',items:['Device status','Battery & storage','Network state']},
+  ];
+  return<section id="tools" className="relative py-32 z-10">
+    <div className="max-w-7xl mx-auto px-6">
+      <Reveal><p className="font-mono text-xs text-bz-accent tracking-[.3em] uppercase mb-4">Tools</p></Reveal>
+      <Reveal delay={100}><h2 className="font-syne font-800 text-4xl md:text-5xl tracking-tight mb-4">14 Tools. Zero Permissions Sent Home.</h2></Reveal>
+      <Reveal delay={200}><p className="text-bz-muted max-w-2xl mb-16 text-sm leading-relaxed">Every tool runs on-device with explicit user scope. No cloud APIs. No background data transmission. Your data, your device, your control.</p></Reveal>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {categories.map((c,i)=>(
+          <Reveal key={i} delay={i*80} direction="scale">
+            <div className="p-6 border border-bz-border bg-bz-card/50 rounded-sm hover:border-bz-accent/30 transition-all duration-300 group h-full">
+              <div className="text-bz-accent mb-4 group-hover:scale-110 transition-transform duration-500 inline-block">{c.icon}</div>
+              <h3 className="font-syne font-700 text-sm mb-3 group-hover:text-bz-accent transition-colors duration-300">{c.title}</h3>
+              <ul className="space-y-2">
+                {c.items.map((item,j)=><li key={j} className="flex items-center gap-2 text-bz-muted text-xs font-mono"><IconArrowRight s={10}/>{item}</li>)}
+              </ul>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </div>
+  </section>;
+}
+
+/* ─── Model Selection ─── */
+function ModelSelection(){
+  const[tab,setTab]=useState('e2b');
+  const models={
+    e2b:{name:'Gemma 4 E2B',params:'2B',ram:'4 GB+',focus:'Mid-Range Optimization',desc:'Engineered for devices with 4GB+ RAM. Delivers responsive, capable AI assistance on mid-range hardware without compromise. Faster inference, lower memory footprint.',features:['Optimized for 4GB+ RAM','Fast inference pipeline','Low memory footprint','Smooth mid-range performance','LiteRT-LM integration']},
+    e4b:{name:'Gemma 4 E4B',params:'4B',ram:'8 GB+',focus:'Flagship Performance',desc:'Built for flagship devices with 8GB+ RAM. Maximum reasoning capability, richer context understanding, and deeper tool orchestration on premium hardware.',features:['Optimized for 8GB+ RAM','Deeper reasoning capability','Richer context understanding','Advanced tool orchestration','Full LiteRT-LM feature set']},
+  };
+  const m=models[tab];
+  return<section id="models" className="relative py-32 z-10">
+    <div className="max-w-7xl mx-auto px-6">
+      <Reveal><p className="font-mono text-xs text-bz-accent tracking-[.3em] uppercase mb-4">Models</p></Reveal>
+      <Reveal delay={100}><h2 className="font-syne font-800 text-4xl md:text-5xl tracking-tight mb-4">Two Tiers. One Standard.</h2></Reveal>
+      <Reveal delay={200}><p className="text-bz-muted max-w-2xl mb-12 text-sm leading-relaxed">Purpose-built for Gemma 4 models with LiteRT-LM integration. Choose the tier that matches your hardware — both deliver the full Borizon experience.</p></Reveal>
+      <Reveal delay={300}>
+        <div className="flex gap-2 mb-8">
+          {['e2b','e4b'].map(t=>(
+            <button key={t} onClick={()=>setTab(t)} className={`px-6 py-3 font-mono text-xs tracking-widest uppercase transition-all duration-300 rounded-sm border ${tab===t?'bg-bz-accent text-bz-bg border-bz-accent font-500':'bg-transparent text-bz-muted border-bz-border hover:border-bz-accent/50'}`}>
+              {t.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </Reveal>
+      <Reveal delay={400} direction="scale">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 border border-bz-border rounded-sm overflow-hidden">
+          <div className="p-8 lg:p-10 bg-bz-card/60 border-b lg:border-b-0 lg:border-r border-bz-border">
+            <div className="inline-block px-3 py-1 bg-bz-accent/10 text-bz-accent font-mono text-xs tracking-wider rounded mb-6">{m.params} Parameters</div>
+            <h3 className="font-syne font-800 text-3xl mb-2">{m.name}</h3>
+            <p className="text-bz-accent font-mono text-xs tracking-wider mb-4">{m.focus}</p>
+            <p className="text-bz-muted text-sm leading-relaxed">{m.desc}</p>
+          </div>
+          <div className="lg:col-span-2 p-8 lg:p-10 bg-bz-surface/50">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+              <div className="p-5 border border-bz-border/50 rounded-sm">
+                <div className="text-bz-muted text-xs font-mono tracking-wider uppercase mb-1">Minimum RAM</div>
+                <div className="font-syne font-800 text-2xl text-bz-accent">{m.ram}</div>
+              </div>
+              <div className="p-5 border border-bz-border/50 rounded-sm">
+                <div className="text-bz-muted text-xs font-mono tracking-wider uppercase mb-1">Runtime</div>
+                <div className="font-syne font-800 text-2xl text-bz-text">LiteRT-LM</div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {m.features.map((f,i)=><div key={i} className="flex items-center gap-3 text-sm"><IconCheck s={16}/><span className="text-bz-text">{f}</span></div>)}
+            </div>
+          </div>
+        </div>
+      </Reveal>
+    </div>
+  </section>;
+}
+
+/* ─── Comparison ─── */
+function Comparison(){
+  const projects=[
+    {name:'Borizon',agent:'Built-in ReflectAgent',features:'ReAct loop, memory, context mgmt, sandboxed shell',privacy:'Full: SQLCipher + HW chip + biometric',highlight:true},
+    {name:'GHOST',agent:'Built-in',features:'System-level intelligence, battery/light, wake word',privacy:'Full: On-device, no cloud',highlight:false},
+    {name:'Jandal AI',agent:'Plugin-based',features:'Extensible skills, semantic memory',privacy:'Full: No cloud, no telemetry',highlight:false},
+    {name:'Hermes',agent:'Optional',features:'Voice, files, local models, tool bridges',privacy:'Variable: Local or remote',highlight:false},
+    {name:'GemOfGemma',agent:'Built-in',features:'Multimodal, 22 tools',privacy:'Full: Zero internet after download',highlight:false},
+  ];
+  return<section id="compare" className="relative py-32 z-10">
+    <div className="max-w-7xl mx-auto px-6">
+      <Reveal><p className="font-mono text-xs text-bz-accent tracking-[.3em] uppercase mb-4">Comparison</p></Reveal>
+      <Reveal delay={100}><h2 className="font-syne font-800 text-4xl md:text-5xl tracking-tight mb-4">How Borizon Compares</h2></Reveal>
+      <Reveal delay={200}><p className="text-bz-muted max-w-2xl mb-12 text-sm leading-relaxed">A technical comparison of how leading projects handle on-device AI. Different approaches, different priorities — one clear choice for comprehensive privacy.</p></Reveal>
+      <Reveal delay={300}>
+        <div className="relative overflow-x-auto border border-bz-border rounded-sm">
+          <div className="scan-line"/>
+          <table className="w-full min-w-[700px]">
+            <thead>
+              <tr className="border-b border-bz-border bg-bz-card/60">
+                <th className="text-left px-6 py-4 font-mono text-xs text-bz-accent tracking-widest uppercase">Project</th>
+                <th className="text-left px-6 py-4 font-mono text-xs text-bz-accent tracking-widest uppercase">Agent Type</th>
+                <th className="text-left px-6 py-4 font-mono text-xs text-bz-accent tracking-widest uppercase">Key Features</th>
+                <th className="text-left px-6 py-4 font-mono text-xs text-bz-accent tracking-widest uppercase">Privacy Model</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projects.map((p,i)=>(
+                <tr key={i} className={`border-b border-bz-border/50 hover:bg-bz-card/30 transition-colors duration-300 ${p.highlight?'compare-highlight bg-bz-accent/5':'bg-transparent'}`}>
+                  <td className="px-6 py-4 font-syne font-700 text-sm">
+                    <div className="flex items-center gap-2">
+                      {p.name}
+                      {p.highlight&&<span className="text-[9px] bg-bz-accent text-bz-bg px-2 py-0.5 font-mono tracking-wider rounded-sm">YOU ARE HERE</span>}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-bz-muted text-xs font-mono">{p.agent}</td>
+                  <td className="px-6 py-4 text-bz-muted text-xs font-mono">{p.features}</td>
+                  <td className="px-6 py-4 text-xs font-mono">
+                    <span className={p.privacy.startsWith('Full')?'text-bz-accent':'text-yellow-500'}>{p.privacy}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Reveal>
+    </div>
+  </section>;
+}
+
+/* ─── Install ─── */
+function Install(){
+  const[copied,setCopied]=useState(false);
+  const[showToast,setShowToast]=useState(false);
+  const cmd='git clone https://github.com/stawils/borizon.git && cd borizon && ./gradlew assembleDebug';
+  const handleCopy=()=>{
+    navigator.clipboard.writeText(cmd).then(()=>{setCopied(true);setShowToast(true);setTimeout(()=>setCopied(false),2000)});
+  };
+  return<section id="install" className="relative py-32 z-10">
+    <div className="max-w-4xl mx-auto px-6 text-center">
+      <Reveal><p className="font-mono text-xs text-bz-accent tracking-[.3em] uppercase mb-4">Install</p></Reveal>
+      <Reveal delay={100}><h2 className="font-syne font-800 text-4xl md:text-5xl tracking-tight mb-4">Get Borizon</h2></Reveal>
+      <Reveal delay={200}><p className="text-bz-muted max-w-xl mx-auto mb-12 text-sm leading-relaxed">Download the latest APK or build from source. No accounts. No sign-ups. No cloud setup.</p></Reveal>
+      <Reveal delay={300}>
+        <div className="mb-8">
+          <a href="https://github.com/stawils/borizon/releases" target="_blank" rel="noopener" className="group inline-flex items-center gap-3 px-10 py-5 bg-bz-accent text-bz-bg font-syne font-700 text-sm tracking-widest uppercase hover:bg-bz-text transition-all duration-300 rounded-sm">
+            <IconDownload s={20}/> Download APK
+          </a>
+        </div>
+      </Reveal>
+      <Reveal delay={400}>
+        <div className="text-bz-muted font-mono text-xs tracking-wider uppercase mb-4">Or build from source</div>
+      </Reveal>
+      <Reveal delay={500}>
+        <div className="relative max-w-2xl mx-auto">
+          <div className="flex items-stretch border border-bz-border rounded-sm overflow-hidden bg-bz-card/80">
+            <div className="flex-1 px-5 py-4 flex items-center overflow-x-auto">
+              <span className="text-bz-accent mr-2 text-sm">$</span>
+              <code className="text-bz-text text-sm whitespace-nowrap">{cmd}</code>
+            </div>
+            <button onClick={handleCopy} className={`copy-btn px-5 flex items-center border-l border-bz-border text-bz-muted hover:text-bz-accent hover:bg-bz-accent/10 transition-all duration-300 ${copied?'copied':''}`}>
+              {copied?<IconCheck s={18}/>:<IconCopy s={18}/>}
+            </button>
+          </div>
+        </div>
+      </Reveal>
+      <Reveal delay={600}>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-bz-muted text-xs font-mono">
+          <span className="flex items-center gap-2"><IconChip s={14}/> Android 10+</span>
+          <span className="flex items-center gap-2"><IconDatabase s={14}/> 4 GB+ RAM</span>
+          <span className="flex items-center gap-2"><IconShield s={14}/> ARM64</span>
+        </div>
+      </Reveal>
+      {showToast&&<Toast message="Command copied to clipboard" onDone={()=>setShowToast(false)}/>}
+    </div>
+  </section>;
+}
+
+/* ─── Footer ─── */
+function Footer(){
+  return<footer className="relative z-10 border-t border-bz-border/50 py-16">
+    <div className="max-w-7xl mx-auto px-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+        <div className="md:col-span-2">
+          <div className="flex items-center gap-3 mb-4"><img src="img/borizon-logo-512.png" alt="" className="w-10 h-10 rounded-sm"/><span className="font-syne font-800 text-2xl tracking-widest text-bz-accent">BORIZONE</span></div>
+          <p className="text-bz-muted text-sm leading-relaxed max-w-md">Privacy-first, on-device AI assistant for Android. The intelligence that never phones home. Built with ReflectAgent, hardware encryption, and 14 autonomous tools.</p>
+        </div>
+        <div>
+          <div className="font-mono text-xs text-bz-accent tracking-widest uppercase mb-4">Resources</div>
+          <div className="space-y-3">
+            <a href="https://github.com/stawils/borizon" target="_blank" rel="noopener" className="flex items-center gap-2 text-bz-muted text-sm hover:text-bz-accent transition-colors duration-300"><IconGithub s={14}/>GitHub Repository <IconExternal/></a>
+            <a href="https://github.com/stawils/borizon/blob/main/README.md" target="_blank" rel="noopener" className="flex items-center gap-2 text-bz-muted text-sm hover:text-bz-accent transition-colors duration-300"><IconExternal/>Documentation <IconExternal/></a>
+            <a href="https://github.com/stawils/borizon/releases" target="_blank" rel="noopener" className="flex items-center gap-2 text-bz-muted text-sm hover:text-bz-accent transition-colors duration-300"><IconDownload s={14}/>Releases <IconExternal/></a>
+          </div>
+        </div>
+        <div>
+          <div className="font-mono text-xs text-bz-accent tracking-widest uppercase mb-4">Navigate</div>
+          <div className="space-y-3">
+            {[['Architecture','arch'],['Privacy','privacy'],['Tools','tools'],['Models','models'],['Compare','compare'],['Install','install']].map(([l,h])=>(
+              <a key={h} href={`#${h}`} className="block text-bz-muted text-sm hover:text-bz-accent transition-colors duration-300">{l}</a>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="accent-line w-full mb-8"/>
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-bz-muted text-xs font-mono">
+        <div>Apache License 2.0 — Open Source</div>
+        <div className="flex items-center gap-1">Made with <span className="text-bz-accent">hardware-backed encryption</span> and zero cloud calls</div>
+      </div>
+    </div>
+  </footer>;
+}
+
+/* ─── App ─── */
+function App(){
+  return<>
+    <div className="grid-bg"/>
+    <ParticleField/>
+    <MouseGlow/>
+    <Navbar/>
+    <Hero/>
+    <div className="accent-line max-w-7xl mx-auto"/>
+    <Architecture/>
+    <div className="accent-line max-w-7xl mx-auto"/>
+    <Privacy/>
+    <div className="accent-line max-w-7xl mx-auto"/>
+    <Tools/>
+    <div className="accent-line max-w-7xl mx-auto"/>
+    <ModelSelection/>
+    <div className="accent-line max-w-7xl mx-auto"/>
+    <Comparison/>
+    <div className="accent-line max-w-7xl mx-auto"/>
+    <Install/>
+    <Footer/>
+  </>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

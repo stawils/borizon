@@ -152,10 +152,10 @@ Built with:
 
 | Doc | Description |
 |-----|-------------|
-| [Architecture](docs/ARCHITECTURE.md) | AI pipeline, data layer, tool system |
-| [Tool Reference](docs/TOOLS.md) | Every tool with parameters and permissions |
-| [Privacy & Security](docs/PRIVACY.md) | Encryption, threat model, shell security |
-| [Getting Started](docs/GETTING-STARTED.md) | Build, develop, extend |
+| [Architecture](docs/guides/ARCHITECTURE.md) | AI pipeline, data layer, tool system |
+| [Tool Reference](docs/guides/TOOLS.md) | Every tool with parameters and permissions |
+| [Privacy & Security](docs/guides/PRIVACY.md) | Encryption, threat model, shell security |
+| [Getting Started](docs/guides/GETTING-STARTED.md) | Build, develop, extend |
 
 </details>
 
