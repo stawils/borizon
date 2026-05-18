@@ -18,7 +18,7 @@ Built for the **[Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gem
 <img src="https://img.shields.io/github/last-commit/stawils/borizon?color=4BC51D" alt="Last Commit">
 </p>
 
-[**Watch the demo on YouTube →**](https://www.youtube.com/watch?v=xV_Km7zY8q8)
+[**Visit the website →**](https://stawils.github.io/borizon/) · [**Watch the demo on YouTube →**](https://www.youtube.com/watch?v=xV_Km7zY8q8)
 
 <a href="https://www.youtube.com/watch?v=xV_Km7zY8q8">
 <img src="docs/screenshots/thumb-borizon.png" alt="Borizon Demo" width="600">
