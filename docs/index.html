@@ -114,6 +114,31 @@ body{background:#050a0e;color:#e8f0f2;font-family:'DM Mono',monospace;overflow-x
 .breathe-border{animation:breathe 4s ease-in-out infinite}
 @keyframes breathe{0%,100%{border-color:rgba(0,229,199,.1)}50%{border-color:rgba(0,229,199,.25)}}
 
+/* Electron orbit */
+.orbit-system{position:relative;width:260px;height:260px;margin:0 auto 24px}
+.orbit-core{position:absolute;top:50%;left:50%;width:180px;height:180px;transform:translate(-50%,-50%);border-radius:50%;z-index:2}
+.orbit-core img{width:100%;height:100%;border-radius:50%;animation:coreGlow 3s ease-in-out infinite}
+@keyframes coreGlow{0%,100%{filter:drop-shadow(0 0 20px rgba(0,229,199,.3)) drop-shadow(0 0 60px rgba(0,229,199,.15))}50%{filter:drop-shadow(0 0 30px rgba(0,229,199,.5)) drop-shadow(0 0 80px rgba(0,229,199,.25))}}
+.orbit-ring{position:absolute;top:50%;left:50%;width:160px;height:160px;border:1.5px solid rgba(0,229,199,.18);border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 15px rgba(0,229,199,.08),inset 0 0 15px rgba(0,229,199,.05)}
+.electron{position:absolute;top:50%;left:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;z-index:3}
+.electron img{width:100%;height:100%;border-radius:50%;box-shadow:0 0 8px rgba(0,229,199,.7),0 0 20px rgba(0,229,199,.3);animation:ePulse 2s ease-in-out infinite}
+@keyframes ePulse{0%,100%{box-shadow:0 0 8px rgba(0,229,199,.5),0 0 15px rgba(0,229,199,.2)}50%{box-shadow:0 0 12px rgba(0,229,199,.9),0 0 30px rgba(0,229,199,.4)}}
+.electron::after{content:'';position:absolute;inset:-5px;border-radius:50%;background:radial-gradient(circle,rgba(0,229,199,.25),transparent 70%)}
+.e1{animation:orbitA 6s linear infinite;animation-delay:0s}
+.e2{animation:orbitB 8s linear infinite;animation-delay:-1s}
+.e3{animation:orbitC 5s linear infinite;animation-delay:-2s}
+.e4{animation:orbitD 9s linear infinite;animation-delay:-3s}
+.e5{animation:orbitE 7s linear infinite;animation-delay:-4s}
+.e6{animation:orbitF 10s linear infinite;animation-delay:-5s}
+.e7{animation:orbitG 6.5s linear infinite;animation-delay:-1.5s}
+@keyframes orbitA{0%{transform:rotate(0deg) translateX(80px) rotate(0deg)}100%{transform:rotate(360deg) translateX(80px) rotate(-360deg)}}
+@keyframes orbitB{0%{transform:rotate(90deg) translateX(80px) rotate(-90deg)}100%{transform:rotate(450deg) translateX(80px) rotate(-450deg)}}
+@keyframes orbitC{0%{transform:rotate(180deg) translateX(80px) rotate(-180deg)}100%{transform:rotate(540deg) translateX(80px) rotate(-540deg)}}
+@keyframes orbitD{0%{transform:rotate(270deg) translateX(80px) rotate(-270deg)}100%{transform:rotate(630deg) translateX(80px) rotate(-630deg)}}
+@keyframes orbitE{0%{transform:rotate(45deg) translateX(80px) rotate(-45deg)}100%{transform:rotate(405deg) translateX(80px) rotate(-405deg)}}
+@keyframes orbitF{0%{transform:rotate(135deg) translateX(80px) rotate(-135deg)}100%{transform:rotate(495deg) translateX(80px) rotate(-495deg)}}
+@keyframes orbitG{0%{transform:rotate(225deg) translateX(80px) rotate(-225deg)}100%{transform:rotate(585deg) translateX(80px) rotate(-585deg)}}
+
 /* Typing cursor */
 .typing-cursor::after{content:'_';animation:blink 1s step-end infinite;color:#00e5c7}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
@@ -254,7 +279,7 @@ function Navbar(){
   const scrolled=scrollY>50;
   return<nav className={`fixed top-0 left-0 right-0 z-50 nav-glass ${scrolled?'bg-bz-bg/80 border-b border-bz-border':'bg-transparent border-b border-transparent'}`}>
     <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
-      <a href="#hero" className="flex items-center gap-2.5 font-syne font-800 text-xl tracking-widest text-bz-accent"><img src="img/borizon-logo-512.png" alt="" className="w-8 h-8 rounded-sm"/>BORIZONE</a>
+      <a href="#hero" className="flex items-center gap-1.5 font-syne font-800 text-xl tracking-widest text-bz-accent"><img src="img/borizon-logo-512.png" alt="" className="w-16 h-16 rounded"/>BORIZONE</a>
       <div className="hidden md:flex items-center gap-8">
         {links.map(([l,h])=><a key={h} href={`#${h}`} className="text-bz-muted hover:text-bz-accent transition-colors duration-300 text-xs tracking-widest uppercase font-mono">{l}</a>)}
         <a href="https://github.com/stawils/borizon" target="_blank" rel="noopener" className="text-bz-muted hover:text-bz-accent transition-colors duration-300"><IconGithub s={18}/></a>
@@ -273,10 +298,20 @@ function Hero(){
   const stats=[{val:14,label:'Tools'},{val:2,label:'Model Tiers'},{val:0,label:'Cloud Calls'},{val:100,label:'% Local',suffix:'%'}];
   return<section id="hero" className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
     <div className="glow-orb glow-orb-1"/><div className="glow-orb glow-orb-2"/><div className="glow-orb glow-orb-3"/>
-    <div className="relative z-10 max-w-7xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+    <div className="relative z-10 max-w-7xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
       <div className="flex-1 text-center lg:text-left">
         <div className="hero-title mb-4">
-          <img src="img/borizon-logo-512.png" alt="Borizon Logo" className="w-20 h-20 sm:w-24 sm:h-24 mx-auto lg:mx-0 mb-6 rounded-2xl" style={{filter:'drop-shadow(0 0 40px rgba(0,229,199,0.35))'}}/>
+          <div className="orbit-system mx-auto">
+          <div className="orbit-ring"/>
+          <div className="orbit-core"><img src="img/borizon-logo-512.png" alt="Borizon Logo"/></div>
+          <div className="electron e1"><img src="img/borizon-logo-512.png" alt=""/></div>
+          <div className="electron e2"><img src="img/borizon-logo-512.png" alt=""/></div>
+          <div className="electron e3"><img src="img/borizon-logo-512.png" alt=""/></div>
+          <div className="electron e4"><img src="img/borizon-logo-512.png" alt=""/></div>
+          <div className="electron e5"><img src="img/borizon-logo-512.png" alt=""/></div>
+          <div className="electron e6"><img src="img/borizon-logo-512.png" alt=""/></div>
+          <div className="electron e7"><img src="img/borizon-logo-512.png" alt=""/></div>
+        </div>
           <h1 className="font-syne font-800 text-6xl sm:text-7xl md:text-8xl lg:text-9xl tracking-tight leading-none">
             <span className="glitch-wrap">
               <span className="glitch-main text-bz-text">BORI</span><span className="glitch-layer glitch-a" aria-hidden="true">BORI</span><span className="glitch-layer glitch-b" aria-hidden="true">BORI</span>
@@ -481,17 +516,17 @@ function ModelSelection(){
 /* ─── Comparison ─── */
 function Comparison(){
   const projects=[
-    {name:'Borizon',agent:'Built-in ReflectAgent',features:'ReAct loop, memory, context mgmt, sandboxed shell',privacy:'Full: SQLCipher + HW chip + biometric',highlight:true},
-    {name:'GHOST',agent:'Built-in',features:'System-level intelligence, battery/light, wake word',privacy:'Full: On-device, no cloud',highlight:false},
-    {name:'Jandal AI',agent:'Plugin-based',features:'Extensible skills, semantic memory',privacy:'Full: No cloud, no telemetry',highlight:false},
-    {name:'Hermes',agent:'Optional',features:'Voice, files, local models, tool bridges',privacy:'Variable: Local or remote',highlight:false},
-    {name:'GemOfGemma',agent:'Built-in',features:'Multimodal, 22 tools',privacy:'Full: Zero internet after download',highlight:false},
+    {name:'Borizon',type:'Agent App',features:'ReflectAgent, ReAct loop, persistent memory, sandboxed shell',privacy:'SQLCipher + HW chip + biometric',highlight:true},
+    {name:'DeliteAI',type:'SDK / Platform',features:'Tool-calling, session memory, multi-step agentic workflows',privacy:'On-device Python runtime, no cloud',highlight:false},
+    {name:'AI Edge Gallery',type:'Demo App',features:'Gemma models, function calling, multimodal',privacy:'On-device, offline after download',highlight:false},
+    {name:'PocketPal AI',type:'Chat App',features:'Hundreds of HuggingFace models, offline chat',privacy:'No data leaves the device',highlight:false},
+    {name:'Open-AutoGLM',type:'Research Agent',features:'Screen understanding, autonomous app control',privacy:'Local inference, no cloud',highlight:false},
   ];
   return<section id="compare" className="relative py-32 z-10">
     <div className="max-w-7xl mx-auto px-6">
       <Reveal><p className="font-mono text-xs text-bz-accent tracking-[.3em] uppercase mb-4">Comparison</p></Reveal>
-      <Reveal delay={100}><h2 className="font-syne font-800 text-4xl md:text-5xl tracking-tight mb-4">How Borizon Compares</h2></Reveal>
-      <Reveal delay={200}><p className="text-bz-muted max-w-2xl mb-12 text-sm leading-relaxed">A technical comparison of how leading projects handle on-device AI. Different approaches, different priorities — one clear choice for comprehensive privacy.</p></Reveal>
+      <Reveal delay={100}><h2 className="font-syne font-800 text-4xl md:text-5xl tracking-tight mb-4">On-Device AI on Android</h2></Reveal>
+      <Reveal delay={200}><p className="text-bz-muted max-w-2xl mb-12 text-sm leading-relaxed">Every project below runs AI locally on Android. Borizon is the only standalone agent with persistent memory, sandboxed execution, and hardware-backed encryption.</p></Reveal>
       <Reveal delay={300}>
         <div className="relative overflow-x-auto border border-bz-border rounded-sm">
           <div className="scan-line"/>
@@ -499,9 +534,9 @@ function Comparison(){
             <thead>
               <tr className="border-b border-bz-border bg-bz-card/60">
                 <th className="text-left px-6 py-4 font-mono text-xs text-bz-accent tracking-widest uppercase">Project</th>
-                <th className="text-left px-6 py-4 font-mono text-xs text-bz-accent tracking-widest uppercase">Agent Type</th>
-                <th className="text-left px-6 py-4 font-mono text-xs text-bz-accent tracking-widest uppercase">Key Features</th>
-                <th className="text-left px-6 py-4 font-mono text-xs text-bz-accent tracking-widest uppercase">Privacy Model</th>
+                <th className="text-left px-6 py-4 font-mono text-xs text-bz-accent tracking-widest uppercase">Type</th>
+                <th className="text-left px-6 py-4 font-mono text-xs text-bz-accent tracking-widest uppercase">Capabilities</th>
+                <th className="text-left px-6 py-4 font-mono text-xs text-bz-accent tracking-widest uppercase">Privacy</th>
               </tr>
             </thead>
             <tbody>
@@ -513,10 +548,10 @@ function Comparison(){
                       {p.highlight&&<span className="text-[9px] bg-bz-accent text-bz-bg px-2 py-0.5 font-mono tracking-wider rounded-sm">YOU ARE HERE</span>}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-bz-muted text-xs font-mono">{p.agent}</td>
+                  <td className="px-6 py-4 text-bz-muted text-xs font-mono">{p.type}</td>
                   <td className="px-6 py-4 text-bz-muted text-xs font-mono">{p.features}</td>
                   <td className="px-6 py-4 text-xs font-mono">
-                    <span className={p.privacy.startsWith('Full')?'text-bz-accent':'text-yellow-500'}>{p.privacy}</span>
+                    <span className="text-bz-accent">{p.privacy}</span>
                   </td>
                 </tr>
               ))}
