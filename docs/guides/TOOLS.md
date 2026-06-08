@@ -1,6 +1,6 @@
 # Borizon — Tool Reference
 
-**Complete reference for all 14 on-device tools across 6 ToolSets.**
+**Complete reference for all 15 on-device tools across 6 ToolSets (E4B). E2B gets 13 tools across 5 ToolSets.**
 
 ---
 
@@ -86,10 +86,12 @@ E2B gets core only to stay within its smaller KV cache budget. The full 15-tool 
 | `communicate` | Make phone calls, send SMS, compose emails |
 | `manageContacts` | Search existing contacts or create new ones |
 | `appControl` | Open apps, settings, share text, open URLs |
-| `calendarAction` | Read upcoming events or create new calendar events |
+| `calendarAction` | Read upcoming events or open calendar to create new events (opens editor, no silent writes) |
 | `readSms` | Read SMS messages (search by keyword, read thread) or call history (`action=calls`) |
 
 **Permissions:** `READ_CONTACTS`, `WRITE_CONTACTS`, `READ_CALENDAR`, `READ_SMS`, `READ_CALL_LOG`, `CALL_PHONE` (via intent), `SEND_SMS` (via intent), `SET_ALARM`, `SCHEDULE_EXACT_ALARM`
+
+**Note:** `calendarAction` create uses `ACTION_INSERT` intent — opens the system calendar editor prefilled with the event title. No `WRITE_CALENDAR` permission needed because the calendar app handles the write, not Borizon.
 
 **Design:** The `readSms` tool handles both SMS and call history. Use `action=calls` to read call log instead of SMS. This merge reduces the tool schema by eliminating a separate `readCallLog` tool.
 
@@ -103,7 +105,12 @@ E2B gets core only to stay within its smaller KV cache budget. The full 15-tool 
 |--------|-----------|-------------|
 | `readRecentNotifications` | `limit`, `query` (optional) | Get recent notifications, optionally filtered by keyword search |
 
-**Privacy:** Sensitive app content (banking, auth, 2FA) is automatically hidden. Notifications auto-expire after 24 hours.
+**Privacy:** Three-tier content filter:
+1. **Blocked** — SMS/dialer notifications dropped entirely (captured by dedicated tools)
+2. **Hidden** — Known sensitive apps (banking, health, messaging): title kept, text replaced with `[content hidden — sensitive app]`
+3. **Redacted** — Unknown apps with sensitive *content* (OTP keywords, 2FA phrases, transaction terms): matched patterns replaced with `[REDACTED]`
+
+The package-name list covers ~30 apps. Content-based patterns catch OTP/2FA/transaction keywords in any language (English + Arabic). Gaps: regional banks not in the package list rely on the keyword filter. Notifications auto-expire after 24 hours.
 
 **Design:** The `query` parameter is optional. Without it, returns the most recent notifications. With it, searches by keyword — replacing the former separate `searchNotifications` tool.
 
@@ -150,7 +157,7 @@ E2B (5 ToolSets, 13 @Tool methods):
 ├── PhoneTools        → 6 tools
 └── NotificationTools → 1 tool
 
-E4B (6 ToolSets, 14 @Tool methods):
+E4B (6 ToolSets, 15 @Tool methods):
 ├── [All E2B tools above]
 └── SkillTools        → 2 tools
 ```
@@ -172,7 +179,7 @@ The following tools were removed to reduce token schema overhead and simplify th
 | `readCallLog` (PhoneTools) | Merged into existing tool | `readSms(action=calls)` |
 | `deviceControl` (PhoneTools) | Rare use, privacy-sensitive | Not replaced |
 
-**Token savings:** 25 tools (~960 tokens) → 14 tools (~530 tokens) = ~430 tokens freed (~45% reduction)
+**Token savings:** 25 tools (~960 tokens) → 15 tools (~530 tokens) = ~430 tokens freed (~45% reduction)
 
 ---
 

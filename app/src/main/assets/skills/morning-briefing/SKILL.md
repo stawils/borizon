@@ -1,6 +1,7 @@
 ---
 name: morning-briefing
-description: Morning briefing with calendar, notifications, weather, and preferences. Triggers: "morning briefing", "daily summary", "good morning".
+description: Morning briefing with calendar, notifications, weather, and preferences.
+triggers: "morning briefing", "daily summary", "good morning"
 ---
 
 # Morning Briefing

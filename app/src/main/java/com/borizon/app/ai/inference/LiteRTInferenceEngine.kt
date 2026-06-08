@@ -10,6 +10,7 @@ import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.Capabilities
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.LogSeverity
@@ -46,10 +47,16 @@ class LiteRTInferenceEngine(
     private val modelFile: File,
     private val preferredBackend: Backend? = null,
     private val maxNumTokens: Int = 3072,
+    private val enableMtp: Boolean = true,
 ) : InferenceEngine {
 
     companion object {
         private const val TAG = "LiteRTInference"
+
+        /** Check if the model file supports speculative decoding (MTP). */
+        fun supportsMtp(modelPath: String): Boolean = try {
+            Capabilities(modelPath).use { it.hasSpeculativeDecodingSupport() }
+        } catch (_: Exception) { false }
     }
 
     private val closed = AtomicBoolean(false)
@@ -97,6 +104,14 @@ class LiteRTInferenceEngine(
 
     /** Set to true when GPU/NPU fails at runtime and falls back to CPU. ModelManager persists this. */
     val fellBackToCpu = AtomicBoolean(false)
+
+    /** Whether MTP (speculative decoding) is actually active on the current engine. */
+    var isMtpActive: Boolean = false
+        private set
+
+    /** Whether the model file supports MTP (checked once at load time). */
+    var modelSupportsMtp: Boolean = false
+        private set
 
     /** Cached sampler config for GPU→CPU fallback re-init. */
     private var cachedSamplerConfig: SamplerConfig? = null
@@ -226,6 +241,19 @@ class LiteRTInferenceEngine(
     ): Engine? {
         return try {
             _visionBackend = visionBackend
+            // Check MTP support from model file (once per load cycle)
+            if (!modelSupportsMtp) {
+                modelSupportsMtp = supportsMtp(modelFile.absolutePath)
+                Log.i(TAG, "MTP: model file hasSpeculativeDecodingSupport = $modelSupportsMtp (file=${modelFile.name}, size=${modelFile.length() / 1024 / 1024}MB)")
+            }
+            // Enable speculative decoding (MTP) if supported, requested, and backend is CPU/GPU.
+            // MTP is NOT supported on NPU per LiteRT-LM docs.
+            val useMtp = enableMtp && modelSupportsMtp && backend !is Backend.NPU
+            Log.i(TAG, "MTP decision: enableMtp=$enableMtp, modelSupports=$modelSupportsMtp, backend=$label → useMtp=$useMtp")
+            if (useMtp) {
+                @OptIn(ExperimentalApi::class)
+                ExperimentalFlags.enableSpeculativeDecoding = true
+            }
             val config = EngineConfig(
                 modelPath = modelFile.absolutePath,
                 backend = backend,
@@ -235,10 +263,17 @@ class LiteRTInferenceEngine(
             )
             val eng = Engine(config)
             eng.initialize()
-            debugLog(TAG, "Engine initialized ($label) with ${modelFile.name}, maxTokens=$maxNumTokens")
+            // Reset flag immediately — it was read at Engine() construction time
+            @OptIn(ExperimentalApi::class)
+            ExperimentalFlags.enableSpeculativeDecoding = false
+            isMtpActive = useMtp
+            debugLog(TAG, "Engine initialized ($label) with ${modelFile.name}, maxTokens=$maxNumTokens, MTP=$useMtp")
             eng
         } catch (e: Exception) {
+            @OptIn(ExperimentalApi::class)
+            ExperimentalFlags.enableSpeculativeDecoding = false
             _visionBackend = null
+            isMtpActive = false
             debugLog(TAG, "$label init failed: ${e.message}")
             null
         }

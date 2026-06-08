@@ -1,6 +1,7 @@
 ---
 name: study-buddy
-description: Adaptive study session with spaced repetition and memory tracking. Triggers: "study session", "help me study", "quiz me", "review notes", "study time".
+description: Adaptive study session with spaced repetition and memory tracking.
+triggers: "study session", "help me study", "quiz me", "review notes", "study time"
 ---
 
 # Study Buddy

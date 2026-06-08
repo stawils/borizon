@@ -88,6 +88,11 @@ class ReflectAgent(
     private val _lastError = MutableStateFlow<String?>(null)
     val lastError: StateFlow<String?> = _lastError
 
+    /** Informational status message (compaction, tier changes, etc.).
+     *  Displayed with INFO severity, not as an error. */
+    private val _lastInfo = MutableStateFlow<String?>(null)
+    val lastInfo: StateFlow<String?> = _lastInfo
+
     private val _isResetting = MutableStateFlow(false)
     val isResetting: StateFlow<Boolean> = _isResetting
 
@@ -168,6 +173,13 @@ class ReflectAgent(
         private const val MAX_GENERATION_MS = 300_000L // 5 minutes
         /** Max agent loop iterations — prevents runaway acknowledge loops. */
         private const val MAX_AGENT_ITERATIONS = 3
+        /** Max chars of skill instructions to inject into user message.
+         * Caps KV cache cost — large skills are truncated with a note. */
+        private const val MAX_SKILL_INJECT_CHARS = 1500
+        /** Minimum turns between compaction attempts.
+         * Prevents re-trigger loop where summary + kept messages + TokenEstimator
+         * overhead consumes enough budget to retrigger shouldCompact() every 1-2 turns. */
+        private const val MIN_TURNS_BETWEEN_COMPACTIONS = 4
     }
 
     /**
@@ -185,14 +197,12 @@ class ReflectAgent(
 
         fun estimateTokens(msgs: List<com.borizon.app.data.models.ChatMessage>): Int {
             return msgs.sumOf { msg ->
-                var tokens = msg.content.length / 4 + 50
-                // Tool calls inject invisible tokens into KV cache:
-                // <|tool_call|>json<|/tool_call|> + <|tool_outputs|>result<|/tool_outputs|>
-                val eventCount = msg.toolEvents?.size ?: 0
-                if (eventCount > 0) {
-                    tokens += 200 + eventCount * 100
-                }
-                tokens
+                com.borizon.app.util.TokenEstimator.estimateTokens(
+                    content = msg.content,
+                    thinkingContent = null, // not replayed into KV cache
+                    role = msg.role,
+                    toolEventCount = msg.toolEvents?.size ?: 0,
+                )
             }
         }
 
@@ -209,13 +219,51 @@ class ReflectAgent(
 
     private fun computeMaxSafeTokens(): Int {
         val maxNumTokens = modelManager.currentConfig.maxTokens
-        val systemTokens = AgentSystemPrompt.build().length / 4
+        val systemPrompt = AgentSystemPrompt.build()
+        val systemTokens = com.borizon.app.util.TokenEstimator.estimateTokens(
+            content = systemPrompt,
+            role = "system",
+        )
         // Each ToolSet adds description tokens to context (~50 per tool with @ToolParam descriptions)
         val toolTokenEstimate = registeredExtraTools.size * 50
         // Reserve output budget + safety margin for tool call/response overhead
         val outputBudget = maxNumTokens / 2
         val toolOverhead = registeredExtraTools.size * 20 // constrained decoding overhead
         return (maxNumTokens - outputBudget - systemTokens - toolTokenEstimate - toolOverhead - 100).coerceAtLeast(200)
+    }
+
+    /**
+     * Compute how many messages to keep after compaction based on actual token cost.
+     *
+     * The naive approach of always keeping 2 messages fails when those messages are
+     * large (e.g., a tool result with 50 SMS messages). The kept messages alone can
+     * exceed maxSafeTokens, making compaction useless and causing re-trigger loops.
+     *
+     * This method walks backward from the most recent messages, accumulating token
+     * cost, and stops when adding the next message would exceed 40% of maxSafeTokens.
+     * The remaining 60% is reserved for: the summary message, new user input, and
+     * the model's response in the next turn.
+     */
+    private fun computeKeptMessageCount(
+        messages: List<com.borizon.app.data.models.ChatMessage>,
+        maxSafeTokens: Int,
+    ): Int {
+        val keepBudget = (maxSafeTokens * 0.4).toInt().coerceAtLeast(100)
+        var accumulated = 0
+        var count = 0
+
+        for (msg in messages.reversed()) {
+            val cost = com.borizon.app.util.TokenEstimator.estimateTokens(
+                content = msg.content,
+                thinkingContent = msg.thinkingContent,
+                role = msg.role,
+                toolEventCount = msg.toolEvents?.size ?: 0,
+            )
+            if (accumulated + cost > keepBudget && count > 0) break
+            accumulated += cost
+            count++
+        }
+        return count.coerceAtLeast(1) // Always keep at least the last message
     }
 
     private suspend fun buildMemoryContext(): String {
@@ -270,52 +318,75 @@ class ReflectAgent(
      * Proactive context compaction — check if context window is approaching capacity
      * and reinitialize with a summary + recent turns if needed.
      * Called before each generation to prevent empty responses from context overflow.
+     *
+     * Re-trigger protection:
+     *   - Cooldown: skips check for MIN_TURNS_BETWEEN_COMPACTIONS after compaction.
+     *   - Failed compaction: trims session messages to MAX_HISTORY_REPLAY to prevent
+     *     immediate re-trigger on the same oversized history.
+     *   - Without these guards, compaction fires every 1-2 turns because the summary +
+     *     kept messages + new TokenEstimator overhead (15% margin, per-message overhead)
+     *     can consume enough of the budget to retrigger shouldCompact().
      */
+    private var turnsSinceCompaction = 0
+    private var compactionActive = false
+
     private suspend fun checkAndCompact() {
         val compactor = contextCompactor ?: return
+
+        // Cooldown guard: don't recheck until enough turns have passed
+        if (compactionActive) {
+            turnsSinceCompaction++
+            if (turnsSinceCompaction < MIN_TURNS_BETWEEN_COMPACTIONS) return
+            // Cooldown expired — allow checking again
+            compactionActive = false
+            turnsSinceCompaction = 0
+        }
+
         val messages = _sessionMessages.value
         if (!compactor.shouldCompact(messages, computeMaxSafeTokens())) return
 
-        debugLog(TAG, "Context compaction triggered")
+        debugLog(TAG, "Context compaction triggered (${messages.size} messages)")
         _isResetting.value = true
         try {
-            val result = compactor.compact(messages)
+            val keepCount = computeKeptMessageCount(messages, computeMaxSafeTokens())
+            val result = compactor.compact(messages, keepCount)
 
             val memoryContext = buildMemoryContext()
-            val skillsList = skillManager?.getSkillsListForPrompt() ?: ""
-            val systemPrompt = AgentSystemPrompt.build(templateSuffix = memoryContext, skillsList = skillsList)
+            val skillsList = if (isSkillTier) skillManager?.getSkillsListForPrompt() ?: "" else ""
+            val systemPrompt = AgentSystemPrompt.build(templateSuffix = memoryContext, skillsList = skillsList, webEnabled = isWebEnabled)
             val toolProviders = registeredExtraTools.map { tool(it) }
 
             if (result != null) {
                 modelManager.initConversation(systemPrompt, toolProviders, result.initialMessages)
 
+                // Replace session messages with compacted set
+                _sessionMessages.value = result.initialMessages
+
                 val summaryText = result.initialMessages.firstOrNull()?.content
                     ?.removePrefix("Previous conversation summary: ") ?: ""
                 if (summaryText.isNotBlank() && activeConversationId != 0L) {
                     conversationDao.updateSummary(activeConversationId, summaryText)
-                    // Also update session summary from compaction — avoids a separate model call
                     conversationDao.updateSessionSummary(activeConversationId, summaryText.take(500))
                 }
 
-                addSystemMessage(ChatMessage(
-                    role = "system",
-                    content = "Context compacted — ${result.messagesCompacted} earlier messages summarized to continue smoothly.",
-                    type = com.borizon.app.data.models.MessageType.SYSTEM,
-                ))
-
                 debugLog(TAG, "Compaction applied: ${result.messagesCompacted} summarized, ${result.initialMessages.size} replayed")
-                _lastError.value = "Context compacted — ${result.messagesCompacted} messages summarized to continue."
+                _lastInfo.value = "Context compacted — ${result.messagesCompacted} messages summarized to continue."
             } else {
-                // Compaction failed — reinit with existing history so conversation isn't left broken
+                // Compaction failed or failed fidelity checks.
+                // Trim session messages to prevent immediate re-trigger on the same
+                // oversized history. buildInitialMessages() respects token budget.
                 val history = buildInitialMessages()
                 modelManager.initConversation(systemPrompt, toolProviders, history)
-                Log.w(TAG, "Compaction returned null — reinitialized with existing history")
+                _sessionMessages.value = history
+                Log.w(TAG, "Compaction returned null — trimmed to ${history.size} messages")
             }
+
+            // Start cooldown regardless of success/failure
+            compactionActive = true
+            turnsSinceCompaction = 0
 
             conversationReady = true
             _isConversationReadyState.value = true
-            // DO NOT call extractSessionSummary or initConversation again here —
-            // analyze() destroys the persistent conversation and would undo compaction.
         } catch (e: Exception) {
             Log.e(TAG, "Compaction failed, continuing without", e)
         } finally {
@@ -344,10 +415,11 @@ class ReflectAgent(
         Log.i(TAG, "reinitWithTools: ${extraTools.size} tools, modelLoaded=${modelManager.isModelLoaded()}")
         registeredExtraTools = extraTools
         val memoryContext = buildMemoryContext()
-        val skillsList = skillManager?.getSkillsListForPrompt() ?: ""
+        val skillsList = if (isSkillTier) skillManager?.getSkillsListForPrompt() ?: "" else ""
         val systemPrompt = com.borizon.app.ai.prompts.AgentSystemPrompt.build(
             templateSuffix = memoryContext,
             skillsList = skillsList,
+            webEnabled = isWebEnabled,
         )
         val toolProviders = extraTools.map { com.google.ai.edge.litertlm.tool(it) }
         val history = buildInitialMessages()
@@ -390,10 +462,11 @@ class ReflectAgent(
      */
     suspend fun initConversation(template: StarterTemplate = StarterTemplate.DEFAULT) = withContext(Dispatchers.IO) {
         val memoryContext = buildMemoryContext()
-        val skillsList = skillManager?.getSkillsListForPrompt() ?: ""
+        val skillsList = if (isSkillTier) skillManager?.getSkillsListForPrompt() ?: "" else ""
         val systemPrompt = AgentSystemPrompt.build(
             templateSuffix = memoryContext,
             skillsList = skillsList,
+            webEnabled = isWebEnabled,
         )
         val toolProviders = registeredExtraTools.map { tool(it) }
         val history = buildInitialMessages()
@@ -453,9 +526,12 @@ class ReflectAgent(
             setActiveConversationId(0L)
             _sessionMessages.value = emptyList()
             contextCompactor?.reset()
+            compactionActive = false
+            turnsSinceCompaction = 0
             _streamingText.value = ""
             _streamingThinkingText.value = ""
             _lastError.value = null
+            _lastInfo.value = null
             WebTools.clearCache()
 
             // Start new session
@@ -587,13 +663,22 @@ class ReflectAgent(
 
             // Auto-inject matching skill instructions into the user message
             // so the model can execute immediately without a loadSkill round-trip.
+            // Only fires for HIGH/MEDIUM confidence matches. See getMatchedSkill() docs.
+            // Instructions are capped at MAX_SKILL_INJECT_CHARS to control KV cache cost.
             val matchedSkill = getMatchedSkill(userText)
             val skillAugmentedText = if (matchedSkill != null) {
-                debugLog(TAG, "Auto-injecting skill: ${matchedSkill.name}")
+                val rawInstructions = matchedSkill.instructions
+                val cappedInstructions = if (rawInstructions.length > MAX_SKILL_INJECT_CHARS) {
+                    debugLog(TAG, "Skill ${matchedSkill.name} instructions truncated: ${rawInstructions.length} -> $MAX_SKILL_INJECT_CHARS chars")
+                    rawInstructions.take(MAX_SKILL_INJECT_CHARS) + "\n[...truncated]"
+                } else {
+                    rawInstructions
+                }
+                debugLog(TAG, "Auto-injecting skill: ${matchedSkill.name} (${cappedInstructions.length} chars)")
                 buildString {
                     append(userText)
                     append("\n\n[INSTRUCTIONS — execute these steps now, do NOT acknowledge, just call the tools:]\n")
-                    append(matchedSkill.instructions)
+                    append(cappedInstructions)
                 }
             } else {
                 userText
@@ -700,6 +785,17 @@ class ReflectAgent(
             if (finalResponse.isBlank()) {
                 debugLog(TAG, "Loop exhausted, running final followup")
                 finalResponse = runFollowupTurn()
+            }
+
+            // If the loop exhausted all iterations with only acknowledgments,
+            // the model never acted. Surface this to the user rather than
+            // showing the last ack as if it were a real response.
+            if (finalResponse.isBlank() || looksLikeAcknowledgment(finalResponse)) {
+                debugLog(TAG, "Agent loop gave up after $MAX_AGENT_ITERATIONS iterations")
+                finalResponse = finalResponse.ifBlank {
+                    "I tried but couldn't complete that action. Could you try rephrasing your request?"
+                }
+                _lastError.value = "Agent loop exhausted — model did not act after $MAX_AGENT_ITERATIONS attempts."
             }
 
             if (finalResponse.isBlank()) {
@@ -845,25 +941,56 @@ class ReflectAgent(
     /**
      * Detect acknowledgment-only responses — the model says it will do something
      * but doesn't actually call any tools.
+     *
+     * Design contract:
+     *   - Minimize FALSE-POSITIVES: never loop on substantive text.
+     *   - Accept FALSE-NEGATIVES: some acks won't be caught → agent stops early.
+     *   - A false-negative (missed ack → premature STOP) is recoverable: the user
+     *     sees a vapid ack and retries. The 3-iteration force-turn loop corrects
+     *     most cases on retry.
+     *   - A false-positive (substantive text → CONTINUE) wastes a force-turn,
+     *     which costs tokens and time. Worse UX than stopping early.
+     *
+     * Decision flow:
+     *   1. Length gate (>200 chars → substantive)
+     *   2. Substance signals (digits, units, URLs, multiple sentences, reasoning)
+     *   3. Ack pattern match (anchored regexes for common ack phrases)
+     *
+     * Exit states in the agent loop (when tools == 0):
+     *   SUBSTANTIVE → STOP   (real answer, user sees it)
+     *   ACK        → CONTINUE (force turn: "Call the tool NOW")
      */
     private fun looksLikeAcknowledgment(text: String): Boolean {
-        if (text.length > 200) return false // Long responses are substantive
+        // --- Layer 1: Length gate ---
+        // Responses >200 chars almost always contain substantive content.
+        if (text.length > 200) return false
         val lower = text.lowercase().trim()
 
-        // Only flag if the ENTIRE response is short and purely acknowledgment.
-        // If the response contains facts, numbers, or specifics, it's real.
+        // --- Layer 2: Substance signals ---
+        // If ANY substance marker is present, this is a real answer — do NOT loop.
         val hasSubstance = listOf(
-            Regex("\\d"),           // contains a number
-            Regex("\\b(kb|mb|gb|%)"), // contains units
-            Regex("http"),             // contains URL
+            Regex("\\d"),                          // contains a number
+            Regex("\\b(kb|mb|gb|tb|%|am|pm|hours?|minutes?|seconds?)\\b"), // units + time
+            Regex("http"),                          // contains URL
+            Regex("[.!?].+[.!?]"),                  // multiple sentences = detailed response
+            Regex("\\b(because|however|but |although|therefore|so |means|found)\\b"), // reasoning
         ).any { it.containsMatchIn(lower) }
         if (hasSubstance) return false
 
+        // --- Layer 3: Acknowledgment patterns ---
+        // Start-anchored regexes for common ack-only phrasings.
         val ackPatterns = listOf(
-            // "I will/X" without any specific claim
-            Regex("^i'?ll (check|look|find|get|do|prepare|run|start|grab)"),
-            Regex("^let me (check|look|find|get|run|start|prepare|grab)"),
-            Regex("^(sure|okay|of course|absolutely|great)[,.!]?$")
+            // "I'll/X" future intent without action
+            Regex("^i'?ll (check|look|find|get|do|prepare|run|start|grab|pull|fetch|search|scan)"),
+            // "Let me/X" — same class, different subject
+            Regex("^let me (check|look|find|get|run|start|prepare|grab|pull|fetch|search|scan)"),
+            // Standalone affirmations (entire response is just this word)
+            Regex("^(sure|okay|of course|absolutely|great|got it|done|will do|on it|roger)[,.!]?$"),
+            // "On it" / "Working on it" — action promise without action
+            Regex("^(on it|working on it|coming right up|coming up)"),
+            // "Give me a sec" — delay without progress
+            Regex("^give me (a )?(sec|second|moment|minute)"),
+            Regex("^(one moment|just a (sec|second|moment|minute))"),
         )
         return ackPatterns.any { it.containsMatchIn(lower) }
     }
@@ -1190,34 +1317,139 @@ class ReflectAgent(
         return android.graphics.Bitmap.createScaledBitmap(bitmap, (w * scale).toInt(), (h * scale).toInt(), true)
     }
 
+    /** Whether WebTools is registered (Brave API key configured). */
+    private val isWebEnabled: Boolean
+        get() = registeredExtraTools.any { it is com.borizon.app.ai.tools.WebTools }
+
     /**
-     * Find a skill whose trigger phrases match the user's message.
-     * Returns null if no skill matches.
+     * Whether skill features are available on the current model tier.
+     * SkillTools (listSkills/loadSkill) are E4B-only, and auto-inject
+     * must be gated to match — otherwise E2B gets skill instructions
+     * injected but no skill tools to act on them, wasting ~1500 chars
+     * of KV cache budget on a model that already has a tight budget.
+     */
+    private val isSkillTier: Boolean
+        get() = modelManager.selectedModelKey == "E4B"
+
+    /**
+     * Find a skill whose trigger phrases match the user's message with confidence.
+     *
+     * Matching strategy (3 tiers, first wins):
+     *   1. EXACT MATCH (confidence HIGH): user message equals the trigger phrase.
+     *      e.g., user says "good morning" → morning-briefing.
+     *   2. WHOLE-WORD SUBSTRING (confidence MEDIUM): trigger appears as a complete
+     *      word/phrase within the user message, bounded by word boundaries.
+     *      e.g., "give me my morning briefing" → morning-briefing.
+     *   3. PARTIAL CONTAINS (confidence LOW): trigger appears anywhere as substring.
+     *      Only used if the trigger is 4+ words long (specific enough to avoid false positives).
+     *      e.g., "how is my phone" → phone-status.
+     *
+     * Auto-inject only fires for HIGH and MEDIUM confidence matches.
+     * LOW confidence matches are logged but NOT injected — the model can still
+     * use loadSkill if it recognizes the intent.
+     *
+     * Token budget: skill instructions are capped at [MAX_SKILL_INJECT_CHARS] to
+     * prevent blowing the KV cache on large skill payloads.
+     *
+     * @return Matched skill, or null if no confident match.
      */
     private fun getMatchedSkill(userText: String): com.borizon.app.proto.Skill? {
         val sm = skillManager ?: return null
+        if (!isSkillTier) return null  // E2B: no skill tools registered, skip auto-inject
         val selected = sm.getSelectedSkills()
         if (selected.isEmpty()) return null
 
-        val lower = userText.lowercase()
-        return selected.firstOrNull { skill ->
-            val triggers = extractTriggers(skill.description)
-            triggers.any { trigger -> lower.contains(trigger) }
+        val lower = userText.lowercase().trim()
+
+        var bestMatch: com.borizon.app.proto.Skill? = null
+        var bestConfidence = Confidence.NONE
+
+        for (skill in selected) {
+            val triggers = extractTriggers(skill)
+            for (trigger in triggers) {
+                val confidence = classifyMatch(lower, trigger)
+                if (confidence > bestConfidence) {
+                    bestConfidence = confidence
+                    bestMatch = skill
+                    if (confidence == Confidence.HIGH) break // Can't beat exact
+                }
+            }
+            if (bestConfidence == Confidence.HIGH) break
+        }
+
+        return when (bestConfidence) {
+            Confidence.HIGH, Confidence.MEDIUM -> {
+                debugLog(TAG, "Skill match: ${bestMatch?.name} (confidence=$bestConfidence, msg='${lower.take(40)}')")
+                bestMatch
+            }
+            Confidence.LOW -> {
+                debugLog(TAG, "Skill low-confidence: ${bestMatch?.name} — NOT injecting, model may loadSkill")
+                null
+            }
+            Confidence.NONE -> null
         }
     }
 
-    /** Extract trigger phrases from a skill description. */
-    private fun extractTriggers(description: String): List<String> {
-        val triggers = mutableListOf<String>()
-        // Parse quoted phrases like "how's my phone"
-        val quoted = Regex("\"([^\"]+)\"").findAll(description)
-        for (match in quoted) {
-            triggers.add(match.groupValues[1].lowercase())
+    /**
+     * Classify how confidently a trigger phrase matches the user message.
+     */
+    private fun classifyMatch(lowerMessage: String, trigger: String): Confidence {
+        val lowerTrigger = trigger.lowercase().trim()
+        if (lowerTrigger.length < 2) return Confidence.NONE
+
+        // Tier 1: EXACT — entire message is the trigger
+        if (lowerMessage == lowerTrigger) return Confidence.HIGH
+
+        // Tier 2: WHOLE-WORD — trigger appears bounded by word boundaries
+        // Use \b for single-word triggers, or check phrase is not part of a larger word
+        val escaped = Regex.escape(lowerTrigger)
+        val wholeWordPattern = if (lowerTrigger.contains(" ")) {
+            // Multi-word trigger: just check it appears as a contiguous phrase
+            // surrounded by non-alphanumeric (or string boundaries)
+            Regex("(?<![\\p{L}\\p{N}])$escaped(?![\\p{L}\\p{N}])")
+        } else {
+            // Single-word trigger: strict word boundary
+            Regex("\\b$escaped\\b")
         }
-        return triggers.filter { it.length in 3..40 }.ifEmpty {
-            // Fallback: use skill description first few words
-            description.lowercase().split(" ").take(3).filter { it.length > 3 }
+        if (wholeWordPattern.containsMatchIn(lowerMessage)) return Confidence.MEDIUM
+
+        // Tier 3: PARTIAL — substring match, but only for long/specific triggers
+        // Short triggers ("travel", "trip") are too ambiguous as substrings.
+        val triggerWords = lowerTrigger.split(" ").filter { it.length > 2 }
+        if (triggerWords.size >= 4 && lowerMessage.contains(lowerTrigger)) {
+            return Confidence.LOW
         }
+
+        return Confidence.NONE
+    }
+
+    private enum class Confidence {
+        NONE, LOW, MEDIUM, HIGH
+    }
+
+    /**
+     * Extract trigger phrases from a skill.
+     *
+     * Priority:
+     *   1. Explicit `triggers` field from proto (parsed from SKILL.md frontmatter).
+     *   2. Legacy: quoted phrases in the description field.
+     *   3. Fallback: skill name split into words.
+     */
+    private fun extractTriggers(skill: com.borizon.app.proto.Skill): List<String> {
+        // Explicit triggers from frontmatter
+        if (skill.triggersCount > 0) {
+            return skill.triggersList.filter { it.length in 2..60 }
+        }
+
+        // Legacy: parse quoted phrases from description
+        val fromQuotes = Regex("\"([^\"]+)\"").findAll(skill.description)
+            .map { it.groupValues[1] }
+            .filter { it.length in 2..60 }
+            .toList()
+        if (fromQuotes.isNotEmpty()) return fromQuotes
+
+        // Fallback: skill name as trigger
+        return listOf(skill.name)
     }
 
     fun getGreeting(): String {

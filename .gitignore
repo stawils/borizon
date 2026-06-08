@@ -29,9 +29,11 @@ Thumbs.db
 
 graphify-out/
 .graphify
-# plans/ — keep plans in repo
-plans/*.pdf
+plans/
 # Signing
 *.jks
 *.keystore
 .idea/
+
+## Pi agent workspace
+.pi/

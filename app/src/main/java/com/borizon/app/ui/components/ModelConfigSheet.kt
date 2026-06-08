@@ -18,8 +18,9 @@ data class ModelConfig(
     val temperature: Float = 0.75f,
     val topK: Int = 40,
     val topP: Float = 0.90f,
-    val maxTokens: Int = 3072,
+    val maxTokens: Int = 8192,
     val enableThinking: Boolean = false,
+    val enableMtp: Boolean = true,
     val accelerator: String = "auto", // auto, cpu, gpu, npu
 ) {
     /** Human-readable summary of what changed vs another config. */
@@ -35,6 +36,8 @@ data class ModelConfig(
             changes["Max Tokens"] = other.maxTokens.toString() to maxTokens.toString()
         if (enableThinking != other.enableThinking)
             changes["Thinking"] = (if (other.enableThinking) "On" else "Off") to (if (enableThinking) "On" else "Off")
+        if (enableMtp != other.enableMtp)
+            changes["MTP"] = (if (other.enableMtp) "On" else "Off") to (if (enableMtp) "On" else "Off")
         if (accelerator != other.accelerator)
             changes["Accelerator"] = other.accelerator.uppercase() to accelerator.uppercase()
         return changes
@@ -53,6 +56,7 @@ fun ModelConfigSheet(
     var topP by remember { mutableFloatStateOf(initialConfig.topP) }
     var maxTokens by remember { mutableFloatStateOf(initialConfig.maxTokens.toFloat()) }
     var enableThinking by remember { mutableStateOf(initialConfig.enableThinking) }
+    var enableMtp by remember { mutableStateOf(initialConfig.enableMtp) }
     var accelerator by remember { mutableStateOf(initialConfig.accelerator) }
 
     ModalBottomSheet(
@@ -134,6 +138,32 @@ fun ModelConfigSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            // MTP (speculative decoding) toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.model_config_mtp),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = stringResource(R.string.model_config_mtp_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = enableMtp,
+                    onCheckedChange = { enableMtp = it }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             // Temperature
             ConfigSlider(
                 label = stringResource(R.string.model_config_temperature),
@@ -171,11 +201,14 @@ fun ModelConfigSheet(
             Spacer(modifier = Modifier.height(20.dp))
 
             // Max tokens (KV cache size / context window)
+            // Range extends to 8192 — loadModel() will clamp to the device's adaptive
+            // ceiling at runtime. The slider lets the user choose freely; the actual
+            // value used is min(user choice, device ceiling).
             ConfigSlider(
                 label = stringResource(R.string.model_config_context),
                 description = stringResource(R.string.model_config_context_desc),
                 value = maxTokens,
-                range = 1024f..4096f,
+                range = 1024f..8192f,
                 valueLabel = maxTokens.roundToInt().toString(),
                 onValueChange = { maxTokens = (it / 256f).roundToInt() * 256f }
             )
@@ -201,6 +234,7 @@ fun ModelConfigSheet(
                                 topP = topP,
                                 maxTokens = maxTokens.roundToInt(),
                                 enableThinking = enableThinking,
+                                enableMtp = enableMtp,
                                 accelerator = accelerator,
                             )
                         )

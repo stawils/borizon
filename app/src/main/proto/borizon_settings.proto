@@ -29,6 +29,9 @@ message ModelConfig {
   float top_p = 3;
   int32 max_tokens = 4;
   bool enable_thinking = 5;
+  // MTP disabled flag — proto3 defaults bool to false, so "not set" = not disabled = MTP enabled.
+  // This way, existing users updating the app get MTP enabled by default.
+  bool disable_mtp = 6;
 }
 
 // Top-level settings message — all Borizon preferences in one schema

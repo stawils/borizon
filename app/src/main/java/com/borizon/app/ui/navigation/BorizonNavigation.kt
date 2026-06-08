@@ -307,6 +307,7 @@ fun BorizonNavHost(
                 val streaming by viewModel.streamingText.collectAsStateWithLifecycle()
                 val streamingThinking by viewModel.streamingThinkingText.collectAsStateWithLifecycle()
                 val lastError by viewModel.lastError.collectAsStateWithLifecycle()
+                val lastInfo by viewModel.lastInfo.collectAsStateWithLifecycle()
                 val modelState by viewModel.modelState.collectAsStateWithLifecycle()
                 val genStartTime by viewModel.generationStartTime.collectAsStateWithLifecycle()
                 val lastDurationMs by viewModel.lastResponseDurationMs.collectAsStateWithLifecycle()
@@ -351,6 +352,7 @@ fun BorizonNavHost(
                     frozenToolEvents = frozenToolEvents,
                     inputHistory = inputHistory,
                     lastError = lastError,
+                    lastInfo = lastInfo,
                     lastResponseDurationMs = lastDurationMs,
                     // State groups
                     voiceState = VoiceState(

@@ -147,7 +147,8 @@ class BorizonViewModel @Inject constructor(
 
     /** Core tools — always registered. */
     private val coreTools get() = listOfNotNull(
-        shellTools, memoryTools, webTools, phoneTools, notificationTools,
+        shellTools, memoryTools, phoneTools, notificationTools,
+        webTools.takeIf { _currentBraveApiKey.isNotBlank() },  // omit if no API key configured
     )
 
     /** Extended tools — only registered for E4B model. */
@@ -434,6 +435,7 @@ class BorizonViewModel @Inject constructor(
     val activeConversationId: StateFlow<Long> = reflectAgent.activeConversationIdFlow
     val streamingThinkingText: StateFlow<String> = reflectAgent.streamingThinkingText
     val lastError: StateFlow<String?> = reflectAgent.lastError
+    val lastInfo: StateFlow<String?> = reflectAgent.lastInfo
 
     private val _hasOlderMessages = MutableStateFlow(false)
     val hasOlderMessages: StateFlow<Boolean> = _hasOlderMessages

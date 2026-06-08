@@ -129,6 +129,7 @@ class SkillManager(private val context: Context) {
         // Parse simple YAML key: value pairs
         var name = ""
         var description = ""
+        val triggersList = mutableListOf<String>()
         for (line in frontmatter.lines()) {
             val colonIdx = line.indexOf(':')
             if (colonIdx < 0) continue
@@ -137,6 +138,12 @@ class SkillManager(private val context: Context) {
             when (key) {
                 "name" -> name = value
                 "description" -> description = value
+                "triggers" -> {
+                    // Parse comma-separated trigger phrases, stripping quotes
+                    value.split(",").map { it.trim().removeSurrounding("\"") }
+                        .filter { it.isNotBlank() && it.length in 2..60 }
+                        .forEach { triggersList.add(it) }
+                }
             }
         }
 
@@ -161,6 +168,9 @@ class SkillManager(private val context: Context) {
             .setInstructions(instructions)
             .setBuiltIn(builtIn)
             .setSelected(true)
+            .also { builder ->
+                triggersList.forEach { builder.addTriggers(it) }
+            }
             .build()
     }
 

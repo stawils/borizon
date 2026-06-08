@@ -122,10 +122,12 @@ class PreferencesManager(private val context: Context) {
             },
             maxTokens = when {
                 mc.maxTokens > 8192 -> mc.maxTokens    // user explicitly chose > 8192
-                mc.maxTokens in 4096..8192 -> mc.maxTokens    // user chose a value
+                mc.maxTokens >= 1024 -> mc.maxTokens    // user chose a value (1024-8192)
                 else -> 8192                            // first launch: let adaptive scaling decide
             },
             enableThinking = mc.enableThinking,
+            // MTP enabled by default — proto field is disable_mtp (inverted) so proto3 false = enabled.
+            enableMtp = !mc.disableMtp,
             accelerator = when (settings.accelerator) {
                 Accelerator.ACCELERATOR_CPU -> "cpu"
                 Accelerator.ACCELERATOR_GPU -> "gpu"
@@ -145,6 +147,7 @@ class PreferencesManager(private val context: Context) {
                         .setTopP(config.topP)
                         .setMaxTokens(config.maxTokens)
                         .setEnableThinking(config.enableThinking)
+                        .setDisableMtp(!config.enableMtp)
                         .build()
                 )
                 .setAccelerator(when (config.accelerator) {

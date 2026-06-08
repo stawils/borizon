@@ -91,6 +91,7 @@ fun ChatScreen(
     frozenToolEvents: List<ToolEvent> = emptyList(),
     inputHistory: List<String> = emptyList(),
     lastError: String? = null,
+    lastInfo: String? = null,
     lastResponseDurationMs: Long = 0L,
     // State groups
     voiceState: VoiceState = VoiceState(),
@@ -273,6 +274,13 @@ fun ChatScreen(
         if (lastError != null) {
             inlineNotification = InlineNotification(lastError, NotificationSeverity.ERROR)
             delay(4000)
+            inlineNotification = null
+        }
+    }
+    LaunchedEffect(lastInfo) {
+        if (lastInfo != null) {
+            inlineNotification = InlineNotification(lastInfo, NotificationSeverity.INFO)
+            delay(3000)
             inlineNotification = null
         }
     }
@@ -889,6 +897,10 @@ private fun ModelStatusBar(
                 Box(modifier = Modifier.size(6.dp).background(dotColor, CircleShape).align(Alignment.CenterVertically))
                 Spacer(modifier = Modifier.width(3.dp))
                 Text(modelState.backend, style = MaterialTheme.typography.bodySmall, color = subtitleColor)
+                if (modelState.mtpActive) {
+                    Text(separator, style = MaterialTheme.typography.bodySmall, color = subtitleColor)
+                    Text("MTP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                }
                 // Show wall-clock TPS (includes tool execution) when available,
                 // fall back to raw inference TPS during initial streaming.
                 val displayTps = if (wallClockTps > 0) wallClockTps else tokensPerSecond

@@ -13,6 +13,11 @@ message Skill {
   bool built_in = 4;
   bool selected = 5;
   string import_dir_name = 6;
+
+  // Explicit trigger phrases for auto-inject matching.
+  // Parsed from frontmatter "triggers:" line in SKILL.md.
+  // If empty, triggers are extracted from description (legacy behavior).
+  repeated string triggers = 7;
 }
 
 // Top-level container for all skills

@@ -1,6 +1,7 @@
 ---
 name: travel-helper
-description: Offline travel assistant with packing lists, itinerary planning, and local info. Triggers: "travel", "trip", "vacation", "packing", "itinerary", "traveling to".
+description: Offline travel assistant with packing lists, itinerary planning, and local info.
+triggers: "travel planning", "plan my trip", "vacation planner", "packing list", "itinerary planner"
 ---
 
 # Travel Helper

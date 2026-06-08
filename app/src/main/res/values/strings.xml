@@ -296,6 +296,8 @@
     <string name="model_config_accelerator_desc">Hardware backend for inference</string>
     <string name="model_config_thinking">Thinking Mode</string>
     <string name="model_config_thinking_desc">Show reasoning before responding</string>
+    <string name="model_config_mtp">Fast Mode (MTP)</string>
+    <string name="model_config_mtp_desc">Multi-token prediction — up to 2x faster responses on GPU</string>
     <string name="model_config_temperature">Temperature</string>
     <string name="model_config_temperature_desc">Higher = more creative, Lower = more focused</string>
     <string name="model_config_top_k">Top-K</string>

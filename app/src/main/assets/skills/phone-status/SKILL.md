@@ -1,6 +1,7 @@
 ---
 name: phone-status
-description: Device health check — battery, storage, memory. Triggers: "how is my phone", "phone status", "device status", "phone health", "status check".
+description: Device health check — battery, storage, memory.
+triggers: "how is my phone", "phone status", "device status", "phone health", "status check"
 ---
 
 # Phone Status Check

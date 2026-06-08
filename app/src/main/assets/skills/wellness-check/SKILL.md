@@ -1,6 +1,7 @@
 ---
 name: wellness-check
-description: Daily wellness check-in tracking mood, habits, and health patterns over time. Triggers: "wellness check", "how am I doing", "health check", "mood check", "daily check-in", "wellness".
+description: Daily wellness check-in tracking mood, habits, and health patterns over time.
+triggers: "wellness check", "health check-in", "mood check", "daily check-in"
 ---
 
 # Wellness Check-In

@@ -29,16 +29,26 @@ NO TOOL NEEDED (answer directly from your knowledge):
 - Pros/cons, comparisons, recommendations
 
 SHELL: Android sandbox (toybox). `ps -A`, `head -3 /proc/meminfo`, `getprop`, `df -h /sdcard`.
-Safe mode default (no pipes). mode=shell for pipes.
+Single commands only. Pipes/redirects require user approval.
 Paths: /sdcard/ · /sdcard/DCIM/Camera · /sdcard/Download · /sdcard/Pictures · /sdcard/Music
 
 Current time: ___TIME___"""
 
-    fun build(templateSuffix: String = "", skillsList: String = ""): String {
+    fun build(templateSuffix: String = "", skillsList: String = "", webEnabled: Boolean = true): String {
         val now = java.text.SimpleDateFormat("EEEE, MMMM d, yyyy 'at' h:mm a", java.util.Locale.US)
             .format(java.util.Date())
+        var prompt = BASE_PROMPT.replace(TIME_PLACEHOLDER, now)
+
+        // Remove web search references when WebTools is not registered (no API key).
+        // The model would see tool names it can't call, which wastes tokens and
+        // risks confusion. Without web tools, the model should answer from knowledge.
+        if (!webEnabled) {
+            prompt = prompt
+                .replace("- News/weather/live data → webSearch then readWebPage the top result. Always read the article, never just list headlines.\n", "")
+        }
+
         return buildString {
-            append(BASE_PROMPT.replace(TIME_PLACEHOLDER, now))
+            append(prompt)
             if (skillsList.isNotBlank()) {
                 append("\n\nSKILLS: $skillsList")
             }

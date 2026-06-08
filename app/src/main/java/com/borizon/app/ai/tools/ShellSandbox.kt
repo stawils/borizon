@@ -10,9 +10,18 @@ import java.util.concurrent.TimeUnit
  * - SAFE (default): Direct binary execution via ProcessBuilder. No shell interpretation.
  *   Only allowlisted binaries at /system/bin/{name}. Prevents pipes, redirects, backticks, $().
  * - SHELL: Runs via `sh -c` with a denylist check. For pipelines like `pm list packages | grep foo`.
+ *   **Requires explicit user confirmation** — the model cannot invoke shell mode autonomously.
  *
- * Security layers: binary allowlist, pattern denylist, environment scrub (4 vars only),
- * no stdin, dedicated working dir, timeout + force kill, output cap, single-execution mutex.
+ * Security model:
+ *   1. PRIMARY: Safe-mode binary allowlist (exhaustive, deterministic).
+ *   2. GATE: Shell mode requires BorizonAction.Confirm with user approval.
+ *   3. DEFENSE-IN-DEPTH: Denylist blocks dangerous patterns even after user confirms.
+ *   4. LAYER 4: Environment scrub (4 vars only), no stdin, dedicated working dir,
+ *      timeout + force kill, output cap, single-execution mutex.
+ *
+ * The mode parameter in the tool call is deliberately ignored. Mode escalation is
+ * determined by requiresShell() detecting shell metacharacters, and gated by user
+ * confirmation. This prevents the model from bypassing safe mode by passing mode=shell.
  */
 object ShellSandbox {
 
@@ -49,8 +58,10 @@ object ShellSandbox {
     )
 
     private val DANGEROUS_PATTERNS: List<Regex> = listOf(
+        // Privilege escalation
         Regex("""\bsu\b""", RegexOption.IGNORE_CASE),
         Regex("""\bsudo\b""", RegexOption.IGNORE_CASE),
+        // Destructive file operations
         Regex("""\brm\s+(-\w*r\w*f|\s*-\s*\w).*\s/"""),
         Regex("""\brm\s+-[^\s]*r"""),
         Regex("""\brm\s+-[^\s]*f.*\s/"""),
@@ -59,6 +70,7 @@ object ShellSandbox {
         Regex("""\bchmod\b"""),
         Regex("""\bchown\b"""),
         Regex("""\bchgrp\b"""),
+        // Filesystem
         Regex("""\bmount\b"""),
         Regex("""\bumount\b"""),
         Regex("""\bmkfs\b"""),
@@ -67,6 +79,7 @@ object ShellSandbox {
         Regex("""\bparted\b"""),
         Regex("""\bmkswap\b"""),
         Regex("""\bswapoff\b"""),
+        // Process/system control
         Regex("""\bsystemctl\b"""),
         Regex("""\bservice\b"""),
         Regex("""\binsmod\b"""),
@@ -79,6 +92,7 @@ object ShellSandbox {
         Regex("""\bshutdown\b"""),
         Regex("""\bhalt\b"""),
         Regex("""\bpoweroff\b"""),
+        // Network (outbound)
         Regex("""\bcurl\b"""),
         Regex("""\bwget\b"""),
         Regex("""\bnc\b"""),
@@ -89,6 +103,7 @@ object ShellSandbox {
         Regex("""\bscp\b"""),
         Regex("""\bsftp\b"""),
         Regex("""\brsync\b"""),
+        // Interpreters / package managers
         Regex("""\bgit\b"""),
         Regex("""\bnpm\b"""),
         Regex("""\bpip\b"""),
@@ -100,23 +115,28 @@ object ShellSandbox {
         Regex("""\bdalvikvm\b"""),
         Regex("""\bdex\b"""),
         Regex("""\bapp_process\b"""),
+        // Session persistence / scheduling
         Regex("""\bscreen\b"""),
         Regex("""\btmux\b"""),
         Regex("""\bnohup\b"""),
         Regex("""\bcrontab\b"""),
         Regex("""\bat\b"""),
         Regex("""\bbatch\b"""),
+        // Auth / identity
         Regex("""\binit\b"""),
         Regex("""\blogin\b"""),
         Regex("""\bpasswd\b"""),
         Regex("""\bnewgrp\b"""),
         Regex("""\bsg\b"""),
+        // Debugging / tracing
         Regex("""\bgdb\b"""),
         Regex("""\bstrace\b"""),
         Regex("""\bptrace\b"""),
+        // Disk / crypto
         Regex("""\bformat\b"""),
         Regex("""\blosetup\b"""),
         Regex("""\bcryptsetup\b"""),
+        // Firewall / SELinux
         Regex("""\biptables\b"""),
         Regex("""\bnft\b"""),
         Regex("""\bfirewalld\b"""),
@@ -125,7 +145,13 @@ object ShellSandbox {
         Regex("""\bchcon\b"""),
         Regex("""\bruncon\b"""),
         Regex("""\bsemanage\b"""),
-        // Bypass vectors
+        // Bypass vectors: shell invocation
+        Regex("""\bsh\b"""),
+        Regex("""\bbash\b"""),
+        Regex("""\btoybox\b\s+sh"""),
+        Regex("""\bbusybox\b"""),
+        Regex("""\bcmd\b"""),               // Android cmd tool (bypasses pm/am allowlist)
+        // Bypass vectors: encoding / indirection
         Regex("""\bbase64\b"""),
         Regex("""\beval\b"""),
         Regex("""\bexec\b"""),
@@ -133,6 +159,15 @@ object ShellSandbox {
         Regex("""\bsource\b"""),
         Regex("""^\.\s"""),
         Regex("""\bcommand\b"""),
+        // Bypass vectors: destructive Android operations
+        Regex("""\bpm\s+(clear|uninstall|remove)"""),
+        Regex("""\binput\b"""),              // UI automation injection
+        Regex("""\bwm\b"""),                  // Display modification
+        // Sensitive filesystem reads
+        Regex("""/proc/(self|\d+)/"""),       // Process info leak
+        Regex("""/data/data/"""),              // App private data
+        Regex("""/data/user/"""),              // App private data (multi-user)
+        Regex("""/data/app/"""),               // APK data
     )
 
     val SANDBOX_ENV: Map<String, String> = mapOf(

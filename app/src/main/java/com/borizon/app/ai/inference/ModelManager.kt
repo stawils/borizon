@@ -66,10 +66,15 @@ open class ModelManager(private val context: Context) {
             val isLargeModel = modelKey.contains("E4B", ignoreCase = true)
             val modelFootprintGb = if (isLargeModel) 5f else 3f  // model + runtime overhead
             val usableGb = totalGb - modelFootprintGb
-            // Cap at 4096 for GPU — Gemma 4's local attention layers use a 512-token
-            // sliding window. Pushing beyond 4096 causes the model to generate EOS mid-response
-            // when tool context fills the KV cache. The model card benchmarks use 2048.
+            // E2B on high-RAM devices can use 8192 — smaller model leaves more headroom.
+            // E4B is capped at 4096: Gemma 4's local attention layers use a 512-token sliding
+            // window, and pushing beyond 4096 can cause EOS mid-response when tool context
+            // fills the KV cache. The model card benchmarks use 2048.
+            // User can always choose less via settings; this is the ceiling.
             return when {
+                !isLargeModel && usableGb >= 10f -> 8192  // E2B on 16GB+: full context
+                !isLargeModel && usableGb >= 7f -> 6144   // E2B on 12GB+
+                usableGb >= 16f -> 8192                   // E4B on 24GB+ (future tablets)
                 usableGb >= 12f -> 4096
                 usableGb >= 8f -> 3072
                 usableGb >= 5f -> 2048
@@ -88,7 +93,7 @@ open class ModelManager(private val context: Context) {
     sealed class ModelState {
         data object Idle : ModelState()
         data object Loading : ModelState()
-        data class Ready(val backend: String, val modelName: String = "Gemma 4") : ModelState()
+        data class Ready(val backend: String, val modelName: String = "Gemma 4", val mtpActive: Boolean = false) : ModelState()
         data class Error(val message: String) : ModelState()
     }
 
@@ -197,7 +202,13 @@ open class ModelManager(private val context: Context) {
             }
 
             val preferredBackend = configToBackend(effectiveConfig.accelerator)
-            val engine = LiteRTInferenceEngine(context, modelFile, preferredBackend, effectiveConfig.maxTokens)
+            val engine = LiteRTInferenceEngine(
+                context = context,
+                modelFile = modelFile,
+                preferredBackend = preferredBackend,
+                maxNumTokens = effectiveConfig.maxTokens,
+                enableMtp = effectiveConfig.enableMtp,
+            )
             try {
                 engine.loadEngine()
             } catch (e: OutOfMemoryError) {
@@ -206,12 +217,18 @@ open class ModelManager(private val context: Context) {
                 engine.close()
                 System.gc()
                 delay(300)
-                val fallback = LiteRTInferenceEngine(context, modelFile, preferredBackend, effectiveConfig.maxTokens / 2)
+                val fallback = LiteRTInferenceEngine(
+                    context = context,
+                    modelFile = modelFile,
+                    preferredBackend = preferredBackend,
+                    maxNumTokens = effectiveConfig.maxTokens / 2,
+                    enableMtp = effectiveConfig.enableMtp,
+                )
                 fallback.loadEngine()
                 inferenceEngine = fallback
                 _state.value = ModelState.Ready(backend = when {
                     fallback.isNpu -> "NPU"; fallback.isGpu -> "GPU"; else -> "CPU"
-                }, modelName = variant.displayName)
+                }, modelName = variant.displayName, mtpActive = fallback.isMtpActive)
                 _initState.value = InitState.LOADED
                 debugLog(TAG, "Model loaded with reduced maxTokens (${config.maxTokens / 2})")
                 return@withContext
@@ -223,7 +240,7 @@ open class ModelManager(private val context: Context) {
                 engine.isGpu -> "GPU"
                 else -> "CPU"
             }
-            _state.value = ModelState.Ready(backend = backend, modelName = variant.displayName)
+            _state.value = ModelState.Ready(backend = backend, modelName = variant.displayName, mtpActive = engine.isMtpActive)
             _initState.value = InitState.LOADED
             // NOTE: Do NOT persist backend at engine-init time.
             // GPU engine init can succeed (OpenCL kernels compile) but inference may still hang.
@@ -316,15 +333,16 @@ open class ModelManager(private val context: Context) {
             oldConfig.topK != newConfig.topK ||
             oldConfig.topP != newConfig.topP
         val thinkingChanged = oldConfig.enableThinking != newConfig.enableThinking
+        val mtpChanged = oldConfig.enableMtp != newConfig.enableMtp
 
-        if (acceleratorChanged || maxTokensChanged) {
-            // Full engine reload required — maxTokens and accelerator are set at engine level 
-            debugLog(TAG, "Engine-level config changed: accelerator=${oldConfig.accelerator}→${newConfig.accelerator}, maxTokens=${oldConfig.maxTokens}→${newConfig.maxTokens}, reloading engine")
+        if (acceleratorChanged || maxTokensChanged || mtpChanged) {
+            // Full engine reload required — maxTokens, accelerator, and MTP are set at engine level
+            debugLog(TAG, "Engine-level config changed: accelerator=${oldConfig.accelerator}→${newConfig.accelerator}, maxTokens=${oldConfig.maxTokens}→${newConfig.maxTokens}, mtp=${oldConfig.enableMtp}→${newConfig.enableMtp}, reloading engine")
             cleanupModel()
             loadModel(newConfig)
         }
 
-        if (samplerChanged || thinkingChanged || acceleratorChanged || maxTokensChanged) {
+        if (samplerChanged || thinkingChanged || acceleratorChanged || maxTokensChanged || mtpChanged) {
             // Reinit conversation with new sampler config
             // Note: ReflectAgent will call initConversation() with system prompt after this
             debugLog(TAG, "Config applied: $changes")
@@ -363,7 +381,7 @@ open class ModelManager(private val context: Context) {
             if (engine is LiteRTInferenceEngine && engine.fellBackToCpu.getAndSet(false)) {
                 debugLog(TAG, "GPU→CPU fallback detected — updating UI state")
                 val variant = ModelDownloader.variant(selectedModelKey)
-                _state.value = ModelState.Ready(backend = "CPU", modelName = variant.displayName)
+                _state.value = ModelState.Ready(backend = "CPU", modelName = variant.displayName, mtpActive = engine.isMtpActive)
             } else {
                 // Only persist backend after a generation that didn't fall back to CPU
                 persistWorkingBackend()
