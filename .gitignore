@@ -37,3 +37,4 @@ plans/
 
 ## Pi agent workspace
 .pi/
+gradle.properties
