@@ -322,13 +322,21 @@ class WebTools(
 
             if (!response.isSuccessful) {
                 response.close()
-                if (BuildConfig.DEBUG) Log.d(TAG, "Jina Reader failed: ${response.code}")
-                actionChannel.trySend(BorizonAction.Progress(
-                    label = "Page read failed (${response.code})",
-                    isInProgress = false,
-                    toolType = ToolType.WEB_READ,
-                ))
-                return mapOf("error" to "Could not read page (HTTP ${response.code}).")
+                val code = response.code
+                if (BuildConfig.DEBUG) Log.d(TAG, "Jina Reader failed: $code")
+                // HTTP 451 (legal block) or 4xx on major news sites — expected.
+                // Return the URL + a note so the model can fall back to search snippets.
+                if (code in 400..499) {
+                    actionChannel.trySend(BorizonAction.Progress(
+                        label = "Page blocked (HTTP $code)",
+                        isInProgress = false,
+                        toolType = ToolType.WEB_READ,
+                    ))
+                    return mapOf(
+                        "content" to "[Page could not be read (HTTP $code). Use the search result description instead.]",
+                        "url" to url,
+                    )
+                }
             }
 
             val body = response.body?.string()?.takeIf { it.isNotBlank() }

@@ -16,7 +16,7 @@ RULES:
 TOOL NEEDED (call immediately, no text before the call):
 - Self/preferences/past facts → memorySearch
 - New fact to remember → memorySave
-- News/weather/live data → webSearch then readWebPage the top result. Always read the article, never just list headlines.
+- News/weather/live data → webSearch. Read the search results first — use the descriptions/snippets. Only call readWebPage if you need more detail from a specific page.
 - Files/storage/system → shellExecute
 - Notifications → readRecentNotifications
 - Alarm/timer → setAlarm | Call/SMS → communicate
@@ -44,7 +44,7 @@ Current time: ___TIME___"""
         // risks confusion. Without web tools, the model should answer from knowledge.
         if (!webEnabled) {
             prompt = prompt
-                .replace("- News/weather/live data → webSearch then readWebPage the top result. Always read the article, never just list headlines.\n", "")
+                .replace("- News/weather/live data → webSearch. Read the search results first — use the descriptions/snippets. Only call readWebPage if you need more detail from a specific page.\n", "")
         }
 
         return buildString {
