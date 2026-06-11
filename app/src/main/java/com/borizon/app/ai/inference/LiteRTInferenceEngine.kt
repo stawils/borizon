@@ -466,7 +466,7 @@ class LiteRTInferenceEngine(
         val MAX_REPETITIONS = 10
         var hitRepetition = false
         var gpuStall = false
-        val STALL_TIMEOUT_MS = 180_000L // 3 min — multi-tool chains (calendar+notifs+memory+web) can take 60+ seconds
+        val STALL_TIMEOUT_MS = 90_000L // 90s — multi-tool chains (calendar+notifs+memory+web) can take 60+ seconds
         var lastTokenTime = System.currentTimeMillis()
 
         try {
