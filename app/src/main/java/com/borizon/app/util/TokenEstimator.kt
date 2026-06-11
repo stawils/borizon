@@ -42,11 +42,11 @@ package com.borizon.app.util
  * may still be off by 15–20% until calibrated.
  *
  * ## Safety margin
- *
- * All estimates include a 15% safety margin (divide by 0.85) to bias
- * toward early compaction rather than late. Compacting early wastes a
- * few tokens of context; compacting late causes context overflow and
- * empty responses.
+ * All estimates previously included a 15% safety margin to bias
+ * toward early compaction. As of 2026-06-11 this was removed — the
+ * output reserve reduction in computeMaxSafeTokens() provides sufficient
+ * headroom, and the smarter shouldCompact() threshold checks projected
+ * next-turn cost instead of current cost.
  */
 object TokenEstimator {
     // --- Per-message overhead ---
@@ -66,9 +66,9 @@ object TokenEstimator {
     private const val TOOL_CALL_PER_EVENT = 80
 
     // --- Safety margin ---
-    // Multiply estimates by this to bias toward early compaction.
-    // 1.0 = no margin. 1.15 = 15% safety margin.
-    private const val SAFETY_MARGIN = 1.15
+    // Removed (was 1.15). Headroom now provided by output reserve (/4)
+    // and projected next-turn threshold in shouldCompact().
+    private const val SAFETY_MARGIN = 1.0
 
     /**
      * Estimate the token count for a single message.

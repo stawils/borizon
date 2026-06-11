@@ -359,14 +359,30 @@ class ReflectAgent(
         val pct = (estTokens * 100f / maxSafe).toInt()
         Log.i(AUDIT, "[COMPACT_CHECK] est=$estTokens safe=$maxSafe pct=$pct% msgs=${messages.size} active=$compactionActive")
 
-        if (!compactor.shouldCompact(messages, maxSafe)) return
+        if (!compactor.shouldCompact(messages, maxSafe, modelManager.currentConfig.maxTokens)) return
 
-        Log.i(AUDIT, "[COMPACT_DO] msgs=${messages.size}")
-        debugLog(TAG, "Context compaction triggered (${messages.size} messages)")
+        val level = compactor.compactionLevel(messages, maxSafe, modelManager.currentConfig.maxTokens)
+        Log.i(AUDIT, "[COMPACT_DO] msgs=${messages.size} level=$level")
+        debugLog(TAG, "Context compaction triggered (${messages.size} messages, level=$level)")
         _isResetting.value = true
         try {
             val keepCount = computeKeptMessageCount(messages, maxSafe)
-            val result = compactor.compact(messages, keepCount)
+
+            // Multi-level compaction: cheapest first, most expensive last resort
+            val result = when (level) {
+                1 -> {
+                    // Level 1: just drop oldest messages — no model call
+                    compactor.trimToLevel(messages, maxSafe)
+                }
+                2 -> {
+                    // Level 2: quick inline compaction — no model call, ≤10 msgs
+                    compactor.compact(messages, keepCount)
+                }
+                else -> {
+                    // Level 3: full model-based summary — expensive, last resort
+                    compactor.compact(messages, keepCount)
+                }
+            }
 
             val memoryContext = buildMemoryContext()
             val skillsList = if (isSkillTier) skillManager?.getSkillsListForPrompt() ?: "" else ""
@@ -389,7 +405,7 @@ class ReflectAgent(
                         content = msg.content, role = msg.role,
                     )
                 }
-                Log.i(AUDIT, "[COMPACT_OK] compacted=${result.messagesCompacted} kept=${result.initialMessages.size} est_after=$afterTokens")
+                Log.i(AUDIT, "[COMPACT_OK] level=$level compacted=${result.messagesCompacted} kept=${result.initialMessages.size} est_after=$afterTokens")
                 debugLog(TAG, "Compaction applied: ${result.messagesCompacted} summarized, ${result.initialMessages.size} replayed")
                 _lastInfo.value = "Context compacted — ${result.messagesCompacted} messages summarized to continue."
             } else {

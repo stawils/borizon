@@ -56,11 +56,22 @@ Rules:
     )
 
     /**
-     * Determine if the context needs compaction.
-     * Uses [com.borizon.app.util.TokenEstimator] for unicode-aware per-script token estimation.
-     * See TokenEstimator docs for calibration status and accuracy targets.
+     * Determine if the context needs compaction using projected next-turn cost.
+     *
+     * Instead of a flat 60% threshold, we check: will adding the next user message
+     * plus a typical model response push us over the safe budget?
+     *
+     * This means short conversations never compact needlessly, and long ones
+     * compact exactly when they're about to overflow — not early.
+     *
+     * @param maxNumTokens The model's maxTokens (raw, not safe). Used to estimate
+     *   the output reserve for the next turn.
      */
-    fun shouldCompact(messages: List<com.borizon.app.data.models.ChatMessage>, maxSafeTokens: Int): Boolean {
+    fun shouldCompact(
+        messages: List<com.borizon.app.data.models.ChatMessage>,
+        maxSafeTokens: Int,
+        maxNumTokens: Int,
+    ): Boolean {
         val estimatedTokens = messages.sumOf { msg ->
             com.borizon.app.util.TokenEstimator.estimateTokens(
                 content = msg.content,
@@ -69,7 +80,81 @@ Rules:
                 toolEventCount = msg.toolEvents?.size ?: 0,
             )
         }
-        return estimatedTokens >= maxSafeTokens
+        // Projected cost of next turn: avg user message + model output (25% of max)
+        val nextUserMsg = 200
+        val nextOutput = maxNumTokens / 4
+        val projectedNextTurn = nextUserMsg + nextOutput
+
+        return (estimatedTokens + projectedNextTurn) >= maxSafeTokens
+    }
+
+    /**
+     * Determine which compaction level to use.
+     *
+     * Level 1 (>60% of maxSafe): just trim oldest messages — no model call
+     * Level 2 (>80%): quick inline compaction — no model call, ≤10 messages
+     * Level 3 (>95%): full model-based summary — most expensive, last resort
+     */
+    fun compactionLevel(
+        messages: List<com.borizon.app.data.models.ChatMessage>,
+        maxSafeTokens: Int,
+        maxNumTokens: Int,
+    ): Int {
+        val estimatedTokens = messages.sumOf { msg ->
+            com.borizon.app.util.TokenEstimator.estimateTokens(
+                content = msg.content, role = msg.role,
+            )
+        }
+        val nextUserMsg = 200
+        val nextOutput = maxNumTokens / 4
+        val projected = estimatedTokens + nextUserMsg + nextOutput
+        val pct = (projected * 100.0 / maxSafeTokens).toInt()
+
+        return when {
+            pct >= 95 -> 3
+            pct >= 80 -> 2
+            pct >= 60 -> 1
+            else -> 0
+        }
+    }
+
+    /** Level 1: drop oldest messages without any model call.
+     *  Keeps the most recent messages within the keep budget. */
+    fun trimToLevel(
+        messages: List<com.borizon.app.data.models.ChatMessage>,
+        maxSafeTokens: Int,
+    ): CompactionResult? {
+        if (messages.size <= 2) return null
+
+        var kept = messages.toList()
+        var tokens = kept.sumOf { msg ->
+            com.borizon.app.util.TokenEstimator.estimateTokens(
+                content = msg.content, role = msg.role,
+                toolEventCount = msg.toolEvents?.size ?: 0,
+            )
+        }
+
+        // Drop oldest messages until we're under 70% of budget
+        val target = (maxSafeTokens * 0.7).toInt()
+        while (kept.size > 2 && tokens > target) {
+            kept = kept.drop(1)
+            tokens = kept.sumOf { msg ->
+                com.borizon.app.util.TokenEstimator.estimateTokens(
+                    content = msg.content, role = msg.role,
+                    toolEventCount = msg.toolEvents?.size ?: 0,
+                )
+            }
+        }
+
+        val dropped = messages.size - kept.size
+        if (dropped == 0) return null
+
+        debugLog(TAG, "Level-1 trim: dropped $dropped oldest messages ($tokens → ${maxSafeTokens} safe)")
+
+        return CompactionResult(
+            initialMessages = kept,
+            messagesCompacted = dropped,
+        )
     }
 
     /** No-op retained for call-site compatibility. */
@@ -162,15 +247,15 @@ Rules:
     }
 
     /**
-     * Quick compaction for small conversations — skips the model call entirely.
-     * Builds a one-line summary from the most recent user/assistant interaction.
-     * Only fires when ≤5 messages total.
+     * Quick compaction for small-to-medium conversations — skips the model call.
+     * Builds a one-line summary from the most recent interaction.
+     * Fires when ≤10 messages total.
      */
     private fun tryQuickCompact(
         messages: List<com.borizon.app.data.models.ChatMessage>,
         keepCount: Int,
     ): CompactionResult? {
-        if (messages.size > 5) return null
+        if (messages.size > 10) return null
 
         val userMsgs = messages.filter { it.role == "user" }
         val assistantMsgs = messages.filter { it.role == "assistant" }
