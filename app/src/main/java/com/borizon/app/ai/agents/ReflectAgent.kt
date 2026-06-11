@@ -180,6 +180,10 @@ class ReflectAgent(
          * Prevents re-trigger loop where summary + kept messages + TokenEstimator
          * overhead consumes enough budget to retrigger shouldCompact() every 1-2 turns. */
         private const val MIN_TURNS_BETWEEN_COMPACTIONS = 4
+        /** Dedicated tag for agent loop audit logging — filter logcat by "ACK_AUDIT". */
+        private const val AUDIT = "ACK_AUDIT"
+        /** Atomic counter for assigning unique run IDs to each reflect() call. */
+        private val auditRunId = java.util.concurrent.atomic.AtomicInteger(0)
     }
 
     /**
@@ -651,6 +655,9 @@ class ReflectAgent(
         _streamingTokensPerSecond.value = 0f
         _wallClockTps.value = 0f
         _totalTokensGenerated.value = 0
+        val runId = auditRunId.incrementAndGet()
+        val startWallMs = System.currentTimeMillis()
+        Log.i(AUDIT, "[RUN_START] id=$runId msg_len=${userText.length} img_count=${imageBytes.size} skip_persist=$skipUserPersist msg='${userText.take(200).replace("\n", "\\n")}'")
         try {
             checkAndCompact()
 
@@ -666,6 +673,9 @@ class ReflectAgent(
             // Only fires for HIGH/MEDIUM confidence matches. See getMatchedSkill() docs.
             // Instructions are capped at MAX_SKILL_INJECT_CHARS to control KV cache cost.
             val matchedSkill = getMatchedSkill(userText)
+            if (matchedSkill != null) {
+                Log.i(AUDIT, "[SKILL] run=$runId skill=${matchedSkill.name}")
+            }
             val skillAugmentedText = if (matchedSkill != null) {
                 val rawInstructions = matchedSkill.instructions
                 val cappedInstructions = if (rawInstructions.length > MAX_SKILL_INJECT_CHARS) {
@@ -704,7 +714,9 @@ class ReflectAgent(
 
             while (hasMoreTurns && iteration < MAX_AGENT_ITERATIONS) {
                 hasMoreTurns = false // Assume we stop unless we detect acknowledgment
+                val iterStartMs = System.currentTimeMillis()
                 debugLog(TAG, "Agent loop iteration $iteration")
+                Log.i(AUDIT, "[ITER_START] run=$runId iter=$iteration")
                 ToolCallTracker.reset()
 
                 val result = if (iteration == 0) {
@@ -726,38 +738,48 @@ class ReflectAgent(
                 }
 
                 val toolsCalled = ToolCallTracker.get()
+                val iterMs = System.currentTimeMillis() - iterStartMs
+                val textLen = result.text.length
+                val thoughtLen = result.thinking.length
+                val isAck = if (toolsCalled > 0) "N/A_tools_called" else if (result.text.isBlank()) "N/A_empty" else looksLikeAcknowledgment(result.text).toString()
                 debugLog(TAG, "Iteration $iteration: tokens=${result.tokensGenerated}, tools=$toolsCalled, text='${result.text.take(80)}'")
+
+                Log.i(AUDIT, "[TURN_DONE] run=$runId iter=$iteration " +
+                    "tokens=${result.tokensGenerated} tools=$toolsCalled " +
+                    "text_len=$textLen thought_len=$thoughtLen " +
+                    "ack_classification=$isAck " +
+                    "iter_ms=$iterMs " +
+                    "error=${"null"}")
 
                 when {
                     // === STOP: Error ===
                     result.error != null && result.text.isBlank() -> {
+                        Log.i(AUDIT, "[BRANCH] run=$runId iter=$iteration branch=ERROR")
                         finalResponse = "I ran into an issue. Could you try again?"
                     }
 
                     // === STOP: Model called tools and produced text ===
                     toolsCalled > 0 && result.text.isNotBlank() -> {
+                        Log.i(AUDIT, "[BRANCH] run=$runId iter=$iteration branch=TOOLS_AND_TEXT")
                         finalResponse = result.text
                     }
 
                     // === STOP: Model called tools but produced no text (silent tool execution) ===
-                    // LiteRT can finish the automaticToolCalling loop without generating a final text response.
-                    // Force a followup to get the model to summarize its tool results.
                     toolsCalled > 0 && result.text.isBlank() -> {
+                        Log.i(AUDIT, "[BRANCH] run=$runId iter=$iteration branch=SILENT_TOOLS")
                         debugLog(TAG, "Tools called ($toolsCalled) but no text generated, forcing followup")
                         finalResponse = runFollowupTurn()
                     }
 
                     // === STOP: Substantive response without tools (pure text answer) ===
-                    // Pi exits the inner loop when model responds with no tool calls.
                     result.text.isNotBlank() && !looksLikeAcknowledgment(result.text) -> {
+                        Log.i(AUDIT, "[BRANCH] run=$runId iter=$iteration branch=SUBSTANTIVE_TEXT")
                         finalResponse = result.text
                     }
 
                     // === CONTINUE: Acknowledgment without tools ===
-                    // E4B-specific: model says "Let me check" but doesn't call tools.
-                    // Pi doesn't need this because its LLM is large enough to always act.
-                    // We force another turn with a stronger prompt.
                     result.text.isNotBlank() && looksLikeAcknowledgment(result.text) -> {
+                        Log.i(AUDIT, "[BRANCH] run=$runId iter=$iteration branch=ACK_FORCE_TURN")
                         debugLog(TAG, "Acknowledgment detected, scheduling force turn")
                         prompt = "Do NOT acknowledge. Call the right tool NOW. No text, just the tool call."
                         hasMoreTurns = true
@@ -765,9 +787,8 @@ class ReflectAgent(
                     }
 
                     // === CONTINUE: Skill injected but model ignored it (no tools) ===
-                    // The user's intent matched a skill, instructions were injected, but the
-                    // model responded with text without calling any tools.
                     matchedSkill != null && toolsCalled == 0 && result.text.isNotBlank() -> {
+                        Log.i(AUDIT, "[BRANCH] run=$runId iter=$iteration branch=SKILL_IGNORED")
                         debugLog(TAG, "Skill ${matchedSkill.name} ignored by model, force turn")
                         prompt = "You were given instructions. Call the tools NOW. Do NOT reply with text."
                         hasMoreTurns = true
@@ -776,6 +797,7 @@ class ReflectAgent(
 
                     // === STOP: Empty ===
                     else -> {
+                        Log.i(AUDIT, "[BRANCH] run=$runId iter=$iteration branch=EMPTY")
                         finalResponse = result.text.ifBlank { "I couldn't generate a response. Please try again." }
                     }
                 }
@@ -799,9 +821,13 @@ class ReflectAgent(
             }
 
             if (finalResponse.isBlank()) {
+                Log.w(AUDIT, "[RUN_EMPTY] run=$runId final_response_empty")
                 _lastError.value = "Empty response."
                 return@withContext ""
             }
+
+            val totalMs = System.currentTimeMillis() - startWallMs
+            Log.i(AUDIT, "[RUN_DONE] run=$runId iter_total=$iteration final_len=${finalResponse.length} final_ack=${looksLikeAcknowledgment(finalResponse).toString()} total_ms=$totalMs resp='${finalResponse.take(200).replace("\n","\\n")}'")
 
             val assistantMsg = ChatMessage(
                 role = "assistant",
