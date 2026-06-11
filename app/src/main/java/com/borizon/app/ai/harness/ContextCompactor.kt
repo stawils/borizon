@@ -181,6 +181,7 @@ Rules:
     suspend fun compact(
         messages: List<com.borizon.app.data.models.ChatMessage>,
         keepCount: Int = 2,
+        forceFull: Boolean = false,
     ): CompactionResult? = withContext(Dispatchers.IO) {
         if (messages.isEmpty()) return@withContext null
 
@@ -205,14 +206,16 @@ Rules:
             transcript
         }
 
-        // --- Step 3: Try quick compaction (no model call) for short conversations ---
-        val quickResult = tryQuickCompact(messages, keepCount)
-        if (quickResult != null) {
-            debugLog(TAG, "Quick compact: ${messages.size} → ${quickResult.initialMessages.size} (no model call)")
-            return@withContext quickResult
+        // --- Step 3: Try quick compaction — skip if caller requested full model summary ---
+        if (!forceFull) {
+            val quickResult = tryQuickCompact(messages, keepCount)
+            if (quickResult != null) {
+                debugLog(TAG, "Quick compact: ${messages.size} → ${quickResult.initialMessages.size} (no model call)")
+                return@withContext quickResult
+            }
         }
 
-        // --- Step 4: Generate summary via model (fallback) ---
+        // --- Step 4: Generate summary via model ---
         val summary = try {
             modelManager.generateAnalysis(
                 systemPrompt = COMPACTION_PROMPT,

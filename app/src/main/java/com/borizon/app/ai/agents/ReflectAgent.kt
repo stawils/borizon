@@ -379,8 +379,8 @@ class ReflectAgent(
                     compactor.compact(messages, keepCount)
                 }
                 else -> {
-                    // Level 3: full model-based summary — expensive, last resort
-                    compactor.compact(messages, keepCount)
+                    // Level 3: full model-based summary — skip quick path
+                    compactor.compact(messages, keepCount, forceFull = true)
                 }
             }
 
@@ -406,8 +406,9 @@ class ReflectAgent(
                     )
                 }
                 Log.i(AUDIT, "[COMPACT_OK] level=$level compacted=${result.messagesCompacted} kept=${result.initialMessages.size} est_after=$afterTokens")
-                debugLog(TAG, "Compaction applied: ${result.messagesCompacted} summarized, ${result.initialMessages.size} replayed")
-                _lastInfo.value = "Context compacted — ${result.messagesCompacted} messages summarized to continue."
+                if (result.messagesCompacted > 0) {
+                    _lastInfo.value = "Context compacted — ${result.messagesCompacted} messages summarized to continue."
+                }
             } else {
                 Log.w(AUDIT, "[COMPACT_FAIL] reason=null_result")
                 val history = buildInitialMessages()
