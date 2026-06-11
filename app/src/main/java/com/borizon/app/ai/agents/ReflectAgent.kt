@@ -19,6 +19,7 @@ import com.borizon.app.data.models.Conversation
 import com.borizon.app.data.models.Message
 import com.borizon.app.data.models.MessageRole
 import com.borizon.app.data.models.Reflection
+import com.borizon.app.ai.harness.AckDetector
 import com.borizon.app.skills.SkillManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -964,62 +965,8 @@ class ReflectAgent(
      * Sends a followup message that forces the model to summarize its tool results.
      * This is the key fix for E2B's tendency to go silent after tool calls.
      */
-    /**
-     * Detect acknowledgment-only responses — the model says it will do something
-     * but doesn't actually call any tools.
-     *
-     * Design contract:
-     *   - Minimize FALSE-POSITIVES: never loop on substantive text.
-     *   - Accept FALSE-NEGATIVES: some acks won't be caught → agent stops early.
-     *   - A false-negative (missed ack → premature STOP) is recoverable: the user
-     *     sees a vapid ack and retries. The 3-iteration force-turn loop corrects
-     *     most cases on retry.
-     *   - A false-positive (substantive text → CONTINUE) wastes a force-turn,
-     *     which costs tokens and time. Worse UX than stopping early.
-     *
-     * Decision flow:
-     *   1. Length gate (>200 chars → substantive)
-     *   2. Substance signals (digits, units, URLs, multiple sentences, reasoning)
-     *   3. Ack pattern match (anchored regexes for common ack phrases)
-     *
-     * Exit states in the agent loop (when tools == 0):
-     *   SUBSTANTIVE → STOP   (real answer, user sees it)
-     *   ACK        → CONTINUE (force turn: "Call the tool NOW")
-     */
-    private fun looksLikeAcknowledgment(text: String): Boolean {
-        // --- Layer 1: Length gate ---
-        // Responses >200 chars almost always contain substantive content.
-        if (text.length > 200) return false
-        val lower = text.lowercase().trim()
-
-        // --- Layer 2: Substance signals ---
-        // If ANY substance marker is present, this is a real answer — do NOT loop.
-        val hasSubstance = listOf(
-            Regex("\\d"),                          // contains a number
-            Regex("\\b(kb|mb|gb|tb|%|am|pm|hours?|minutes?|seconds?)\\b"), // units + time
-            Regex("http"),                          // contains URL
-            Regex("[.!?].+[.!?]"),                  // multiple sentences = detailed response
-            Regex("\\b(because|however|but |although|therefore|so |means|found)\\b"), // reasoning
-        ).any { it.containsMatchIn(lower) }
-        if (hasSubstance) return false
-
-        // --- Layer 3: Acknowledgment patterns ---
-        // Start-anchored regexes for common ack-only phrasings.
-        val ackPatterns = listOf(
-            // "I'll/X" future intent without action
-            Regex("^i'?ll (check|look|find|get|do|prepare|run|start|grab|pull|fetch|search|scan)"),
-            // "Let me/X" — same class, different subject
-            Regex("^let me (check|look|find|get|run|start|prepare|grab|pull|fetch|search|scan)"),
-            // Standalone affirmations (entire response is just this word)
-            Regex("^(sure|okay|of course|absolutely|great|got it|done|will do|on it|roger)[,.!]?$"),
-            // "On it" / "Working on it" — action promise without action
-            Regex("^(on it|working on it|coming right up|coming up)"),
-            // "Give me a sec" — delay without progress
-            Regex("^give me (a )?(sec|second|moment|minute)"),
-            Regex("^(one moment|just a (sec|second|moment|minute))"),
-        )
-        return ackPatterns.any { it.containsMatchIn(lower) }
-    }
+    private fun looksLikeAcknowledgment(text: String): Boolean =
+        AckDetector.isAcknowledgment(text)
 
     private suspend fun runFollowupTurn(): String {
         _preparing.value = true
