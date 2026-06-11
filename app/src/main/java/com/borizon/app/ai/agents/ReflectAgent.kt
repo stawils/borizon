@@ -174,6 +174,11 @@ class ReflectAgent(
 
     companion object {
         private const val TAG = "ReflectAgent"
+        /** Max message length before validation rejects it.
+         *  Generous for any conversation — prevents OOM on pathological input. */
+        private const val MAX_USER_MESSAGE_CHARS = 10_000
+        /** Max image size per attachment before validation rejects it. */
+        private const val MAX_IMAGE_BYTES = 10 * 1024 * 1024  // 10MB
         /** Max messages to replay into KV cache on reinit. Keeps context window manageable. */
         private const val MAX_HISTORY_REPLAY = 10
         /** Max total generation time (ms). Prevents infinite tool loops or hung inference. */
@@ -668,6 +673,18 @@ class ReflectAgent(
         imageBytes: List<ByteArray> = emptyList(),
         skipUserPersist: Boolean = false,
     ): String = withContext(Dispatchers.IO) {
+        // Validate input before consuming any resources
+        if (userText.length > MAX_USER_MESSAGE_CHARS) {
+            _lastError.value = "Message too long (${userText.length} chars). Max ${MAX_USER_MESSAGE_CHARS}."
+            return@withContext ""
+        }
+        for ((i, bytes) in imageBytes.withIndex()) {
+            if (bytes.size > MAX_IMAGE_BYTES) {
+                _lastError.value = "Image ${i + 1} too large (${bytes.size / 1024}KB). Max ${MAX_IMAGE_BYTES / 1024}KB."
+                return@withContext ""
+            }
+        }
+
         if (!generationGuard.compareAndSet(false, true)) {
             Log.w(TAG, "reflect() called while already generating — dropping duplicate")
             return@withContext ""
@@ -979,6 +996,11 @@ class ReflectAgent(
         } catch (e: TimeoutCancellationException) {
             Log.w(TAG, "Agent turn timed out after ${MAX_GENERATION_MS}ms")
             _lastError.value = "Generation timed out."
+            // Flag engine for poison reset — partial generation poisoned KV cache
+            (modelManager.getEngine() as? com.borizon.app.ai.inference.LiteRTInferenceEngine)?.let {
+                it.needsPoisonReset = true
+                Log.w(AUDIT, "[TIMEOUT_POISON]")
+            }
         } catch (e: CancellationException) {
             debugLog(TAG, "Agent turn cancelled")
         } catch (e: Exception) {
