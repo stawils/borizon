@@ -29,7 +29,7 @@ Thumbs.db
 
 graphify-out/
 .graphify
-# plans/ — tracked on fix/architecture-overhaul branch
+plans/
 # Signing
 *.jks
 *.keystore
