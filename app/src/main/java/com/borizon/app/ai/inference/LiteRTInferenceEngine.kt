@@ -52,6 +52,7 @@ class LiteRTInferenceEngine(
 
     companion object {
         private const val TAG = "LiteRTInference"
+        private const val AUDIT = "ACK_AUDIT"
 
         /** Check if the model file supports speculative decoding (MTP). */
         fun supportsMtp(modelPath: String): Boolean = try {
@@ -97,6 +98,12 @@ class LiteRTInferenceEngine(
     /** Whether the engine is currently running on GPU. */
     var isGpu = false
         private set
+
+    /** Set true when stream ends due to repetition or GPU stall.
+     *  The agent loop should call resetConversation() + initConversation()
+     *  before the next generation to clear the poisoned KV cache. */
+    @Volatile
+    var needsPoisonReset: Boolean = false
 
     /** Whether the engine is running on NPU. */
     var isNpu = false
@@ -531,6 +538,8 @@ class LiteRTInferenceEngine(
                             repeatCount++
                             if (repeatCount >= MAX_REPETITIONS) {
                                 hitRepetition = true
+                                needsPoisonReset = true
+                                Log.w(AUDIT, "[REPETITION] repeatCount=$repeatCount token='$lastRawToken'")
                                 debugLog(TAG, "Repetition detected: '$raw' repeated $repeatCount times, stopping")
                                 try { conv.cancelProcess() } catch (_: Exception) {}
                                 break
@@ -556,6 +565,8 @@ class LiteRTInferenceEngine(
                     repeatCount++
                     if (repeatCount >= MAX_REPETITIONS) {
                         hitRepetition = true
+                        needsPoisonReset = true
+                        Log.w(AUDIT, "[REPETITION] repeatCount=$repeatCount token='$lastRawToken'")
                         debugLog(TAG, "Repetition detected: '$raw' repeated $repeatCount times, stopping")
                         try { conv.cancelProcess() } catch (_: Exception) {}
                     }

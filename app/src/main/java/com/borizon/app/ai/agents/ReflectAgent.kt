@@ -691,6 +691,16 @@ class ReflectAgent(
         val startWallMs = System.currentTimeMillis()
         Log.i(AUDIT, "[RUN_START] id=$runId msg_len=${userText.length} img_count=${imageBytes.size} skip_persist=$skipUserPersist msg='${userText.take(200).replace("\n", "\\n")}'")
         try {
+            // Poison reset: clear KV cache if previous generation hit repetition or GPU stall
+            val engine = modelManager.getEngine()
+            if (engine is com.borizon.app.ai.inference.LiteRTInferenceEngine && engine.needsPoisonReset) {
+                engine.needsPoisonReset = false
+                Log.w(AUDIT, "[POISON_RESET] run=$runId resetting conversation after repetition/stall")
+                modelManager.resetConversation()
+                initConversation()
+                _lastInfo.value = "Context was reset due to a model loop."
+            }
+
             checkAndCompact()
 
             if (!skipUserPersist) {
