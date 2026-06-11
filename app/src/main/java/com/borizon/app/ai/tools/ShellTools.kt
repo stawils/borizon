@@ -76,6 +76,10 @@ class ShellTools(
         @ToolParam(description = "Execution mode. Ignored — mode is determined automatically.") mode: String = "safe",
     ): Map<String, String> = runBlocking(Dispatchers.IO) {
         ToolCallTracker.increment()
+        if (!ToolCallTracker.canCall("shellExecute")) {
+            return@runBlocking mapOf("result" to "error", "exit_code" to "126",
+                "error" to "Rate limit: max 5 shell commands per turn.")
+        }
         val displayCommand = command.take(60).let { if (command.length > 60) "$it..." else it }
 
         val needsShell = requiresShell(command)

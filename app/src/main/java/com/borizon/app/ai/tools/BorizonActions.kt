@@ -1,6 +1,7 @@
 package com.borizon.app.ai.tools
 
 import kotlinx.coroutines.CompletableDeferred
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -10,7 +11,11 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 object ToolCallTracker {
     private val counter = AtomicInteger(0)
-    /** Timestamp of last tool execution — used by GPU stall watchdog to avoid false stall detection during multi-tool chains. */
+    /** Per-tool rate limiter — prevents API quota exhaustion. */
+    private val perToolCounts = ConcurrentHashMap<String, AtomicInteger>()
+    private const val MAX_CALLS_PER_TOOL_PER_TURN = 5
+
+    /** Timestamp of last tool execution — used by GPU stall watchdog. */
     @Volatile
     var lastToolActivityMs: Long = 0L
         private set
@@ -22,7 +27,14 @@ object ToolCallTracker {
     fun get(): Int = counter.get()
     fun reset() {
         counter.set(0)
+        perToolCounts.clear()
         lastToolActivityMs = 0L
+    }
+
+    /** Returns true if the named tool hasn't exceeded its per-turn limit. */
+    fun canCall(toolName: String): Boolean {
+        val count = perToolCounts.computeIfAbsent(toolName) { AtomicInteger(0) }
+        return count.incrementAndGet() <= MAX_CALLS_PER_TOOL_PER_TURN
     }
 }
 

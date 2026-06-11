@@ -26,10 +26,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("../borizon-release.jks")
-            storePassword = project.findProperty("BORIZON_STORE_PASSWORD") ?: ""
-            keyAlias = "borizon"
-            keyPassword = project.findProperty("BORIZON_KEY_PASSWORD") ?: ""
+            storeFile = file(project.findProperty("BORIZON_STORE_FILE") as String? ?: "../borizon-release.jks")
+            storePassword = project.findProperty("BORIZON_STORE_PASSWORD") as String? ?: ""
+            keyAlias = project.findProperty("BORIZON_KEY_ALIAS") as String? ?: "borizon"
+            keyPassword = project.findProperty("BORIZON_KEY_PASSWORD") as String? ?: ""
         }
     }
 

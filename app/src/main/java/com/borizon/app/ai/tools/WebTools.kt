@@ -76,6 +76,9 @@ class WebTools(
     ): Map<String, String> {
         ToolCallTracker.increment()
         if (BuildConfig.DEBUG) Log.d(TAG, "webSearch called: $query")
+        if (!ToolCallTracker.canCall("webSearch")) {
+            return mapOf("error" to "Rate limit: max 5 web searches per turn.")
+        }
         if (apiKey.isBlank()) {
             return mapOf("error" to "Web search not configured. No API key set.")
         }
@@ -164,6 +167,9 @@ class WebTools(
     ): Map<String, String> {
         ToolCallTracker.increment()
         if (BuildConfig.DEBUG) Log.d(TAG, "readWebPage called: $url")
+        if (!ToolCallTracker.canCall("readWebPage")) {
+            return mapOf("error" to "Rate limit: max 5 page reads per turn.")
+        }
 
         // Validate scheme
         val scheme = url.substringBefore("://", "").lowercase()
