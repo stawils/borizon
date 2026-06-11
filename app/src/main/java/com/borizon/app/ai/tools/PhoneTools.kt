@@ -17,6 +17,7 @@ import com.google.ai.edge.litertlm.Tool
 import com.google.ai.edge.litertlm.ToolParam
 import com.google.ai.edge.litertlm.ToolSet
 import com.borizon.app.util.escapeLike
+import com.borizon.app.ai.harness.ToolResultCache
 
 import kotlinx.coroutines.channels.Channel
 import com.borizon.app.ai.tools.ToolCallTracker
@@ -237,7 +238,9 @@ class PhoneTools(
                     return mapOf("result" to "error", "error" to "Failed to read contacts: ${e.message}")
                 }
                 actionChannel.trySend(BorizonAction.Progress(label = "Found ${contacts.size} contacts", isInProgress = false, toolType = ToolType.READ_CONTACTS))
-                mapOf("result" to "success", "count" to contacts.size.toString(), "contacts" to contacts.take(10).joinToString("; "))
+                val contactList = contacts.take(10).joinToString("; ")
+                ToolResultCache.put("contacts", contactList.take(300))
+                mapOf("result" to "success", "count" to contacts.size.toString(), "contacts" to contactList)
             }
             "create" -> {
                 if (query.isBlank()) return mapOf("result" to "error", "error" to "create action requires a first name (query parameter)")
@@ -414,7 +417,9 @@ class PhoneTools(
                     return mapOf("result" to "error", "error" to "Failed to read calendar: ${e.message}")
                 }
                 actionChannel.trySend(BorizonAction.Progress(label = "Found ${events.size} events", isInProgress = false, toolType = ToolType.OPEN_CALENDAR, detailDescription = "Next $days days"))
-                mapOf("result" to "success", "count" to events.size.toString(), "events" to events.take(10).joinToString("; "))
+                val eventList = events.take(10).joinToString("; ")
+                ToolResultCache.put("calendar", eventList.take(300))
+                mapOf("result" to "success", "count" to events.size.toString(), "events" to eventList)
             }
             "create" -> {
                 if (title.isBlank()) return mapOf("result" to "error", "error" to "create action requires a title")
@@ -545,7 +550,11 @@ class PhoneTools(
 
             actionChannel.trySend(BorizonAction.Progress(label = "Found ${results.size} results", isInProgress = false, toolType = toolType))
             if (results.isEmpty()) mapOf("result" to "empty", "message" to "No results found")
-            else mapOf("result" to "found", "count" to results.size.toString(), "messages" to results.joinToString("\n").take(4000))
+            else {
+                val smsResults = results.joinToString("\n").take(4000)
+                ToolResultCache.put("sms", smsResults.take(300))
+                mapOf("result" to "found", "count" to results.size.toString(), "messages" to smsResults)
+            }
         } catch (e: SecurityException) {
             mapOf("result" to "error", "error" to "Permission denied.")
         } catch (e: Exception) {

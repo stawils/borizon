@@ -6,6 +6,7 @@ import com.google.ai.edge.litertlm.Tool
 import com.google.ai.edge.litertlm.ToolParam
 import com.google.ai.edge.litertlm.ToolSet
 import kotlinx.coroutines.channels.Channel
+import com.borizon.app.ai.harness.ToolResultCache
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -142,6 +143,7 @@ class WebTools(
                 toolType = ToolType.WEB_SEARCH,
             ))
 
+            ToolResultCache.put("webSearch", formattedResults.take(300))
             mapOf("results" to formattedResults)
         } catch (e: Exception) {
             Log.e(TAG, "webSearch failed", e)
@@ -289,6 +291,7 @@ class WebTools(
 
         // Cache and return
         pageCache[url] = content
+        ToolResultCache.put("webPage", content.take(300))
         actionChannel.trySend(BorizonAction.Progress(
             label = "Read ${content.length} chars",
             isInProgress = false,

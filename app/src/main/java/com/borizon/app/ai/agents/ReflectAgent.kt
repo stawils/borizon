@@ -232,7 +232,7 @@ class ReflectAgent(
         // Each ToolSet adds description tokens to context (~50 per tool with @ToolParam descriptions)
         val toolTokenEstimate = registeredExtraTools.size * 50
         // Reserve output budget + safety margin for tool call/response overhead
-        val outputBudget = maxNumTokens / 2
+        val outputBudget = maxNumTokens / 4
         val toolOverhead = registeredExtraTools.size * 20 // constrained decoding overhead
         return (maxNumTokens - outputBudget - systemTokens - toolTokenEstimate - toolOverhead - 100).coerceAtLeast(200)
     }
@@ -342,18 +342,30 @@ class ReflectAgent(
         if (compactionActive) {
             turnsSinceCompaction++
             if (turnsSinceCompaction < MIN_TURNS_BETWEEN_COMPACTIONS) return
-            // Cooldown expired — allow checking again
             compactionActive = false
             turnsSinceCompaction = 0
         }
 
         val messages = _sessionMessages.value
-        if (!compactor.shouldCompact(messages, computeMaxSafeTokens())) return
+        val maxSafe = computeMaxSafeTokens()
+        val estTokens = messages.sumOf { msg ->
+            com.borizon.app.util.TokenEstimator.estimateTokens(
+                content = msg.content,
+                thinkingContent = msg.thinkingContent,
+                role = msg.role,
+                toolEventCount = msg.toolEvents?.size ?: 0,
+            )
+        }
+        val pct = (estTokens * 100f / maxSafe).toInt()
+        Log.i(AUDIT, "[COMPACT_CHECK] est=$estTokens safe=$maxSafe pct=$pct% msgs=${messages.size} active=$compactionActive")
 
+        if (!compactor.shouldCompact(messages, maxSafe)) return
+
+        Log.i(AUDIT, "[COMPACT_DO] msgs=${messages.size}")
         debugLog(TAG, "Context compaction triggered (${messages.size} messages)")
         _isResetting.value = true
         try {
-            val keepCount = computeKeptMessageCount(messages, computeMaxSafeTokens())
+            val keepCount = computeKeptMessageCount(messages, maxSafe)
             val result = compactor.compact(messages, keepCount)
 
             val memoryContext = buildMemoryContext()
@@ -363,8 +375,6 @@ class ReflectAgent(
 
             if (result != null) {
                 modelManager.initConversation(systemPrompt, toolProviders, result.initialMessages)
-
-                // Replace session messages with compacted set
                 _sessionMessages.value = result.initialMessages
 
                 val summaryText = result.initialMessages.firstOrNull()?.content
@@ -374,25 +384,28 @@ class ReflectAgent(
                     conversationDao.updateSessionSummary(activeConversationId, summaryText.take(500))
                 }
 
+                val afterTokens = result.initialMessages.sumOf { msg ->
+                    com.borizon.app.util.TokenEstimator.estimateTokens(
+                        content = msg.content, role = msg.role,
+                    )
+                }
+                Log.i(AUDIT, "[COMPACT_OK] compacted=${result.messagesCompacted} kept=${result.initialMessages.size} est_after=$afterTokens")
                 debugLog(TAG, "Compaction applied: ${result.messagesCompacted} summarized, ${result.initialMessages.size} replayed")
                 _lastInfo.value = "Context compacted — ${result.messagesCompacted} messages summarized to continue."
             } else {
-                // Compaction failed or failed fidelity checks.
-                // Trim session messages to prevent immediate re-trigger on the same
-                // oversized history. buildInitialMessages() respects token budget.
+                Log.w(AUDIT, "[COMPACT_FAIL] reason=null_result")
                 val history = buildInitialMessages()
                 modelManager.initConversation(systemPrompt, toolProviders, history)
                 _sessionMessages.value = history
                 Log.w(TAG, "Compaction returned null — trimmed to ${history.size} messages")
             }
 
-            // Start cooldown regardless of success/failure
             compactionActive = true
             turnsSinceCompaction = 0
-
             conversationReady = true
             _isConversationReadyState.value = true
         } catch (e: Exception) {
+            Log.e(AUDIT, "[COMPACT_FAIL] reason=exception msg=${e.message}")
             Log.e(TAG, "Compaction failed, continuing without", e)
         } finally {
             _isResetting.value = false
@@ -538,6 +551,7 @@ class ReflectAgent(
             _lastError.value = null
             _lastInfo.value = null
             WebTools.clearCache()
+            com.borizon.app.ai.harness.ToolResultCache.clear()
 
             // Start new session
             val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())

@@ -107,17 +107,27 @@ Rules:
             return@withContext null
         }
 
-        // --- Step 2: Enrich with tool event summaries ---
-        // Tool events contain data the model produced/used but aren't in the text content.
-        // Without this, "What was the weather you showed me?" is unanswerable after compaction.
+        // --- Step 2: Enrich with tool event summaries AND actual cached results ---
         val toolDigest = buildToolDigest(messages)
-        val enrichedTranscript = if (toolDigest.isNotBlank()) {
-            "$transcript\n\n[TOOL RESULTS TO PRESERVE:]\n$toolDigest"
+        val toolData = ToolResultCache.getDigest()
+        val enrichment = listOfNotNull(
+            if (toolDigest.isNotBlank()) "[TOOL RESULTS TO PRESERVE:]\n$toolDigest" else null,
+            if (toolData.isNotBlank()) "[TOOL DATA — actual values:]\n$toolData" else null,
+        ).joinToString("\n\n")
+        val enrichedTranscript = if (enrichment.isNotBlank()) {
+            "$transcript\n\n$enrichment"
         } else {
             transcript
         }
 
-        // --- Step 3: Generate summary ---
+        // --- Step 3: Try quick compaction (no model call) for short conversations ---
+        val quickResult = tryQuickCompact(messages, keepCount)
+        if (quickResult != null) {
+            debugLog(TAG, "Quick compact: ${messages.size} → ${quickResult.initialMessages.size} (no model call)")
+            return@withContext quickResult
+        }
+
+        // --- Step 4: Generate summary via model (fallback) ---
         val summary = try {
             modelManager.generateAnalysis(
                 systemPrompt = COMPACTION_PROMPT,
@@ -148,6 +158,43 @@ Rules:
         CompactionResult(
             initialMessages = listOf(summaryMessage) + lastMessages,
             messagesCompacted = messages.size - lastMessages.size
+        )
+    }
+
+    /**
+     * Quick compaction for small conversations — skips the model call entirely.
+     * Builds a one-line summary from the most recent user/assistant interaction.
+     * Only fires when ≤5 messages total.
+     */
+    private fun tryQuickCompact(
+        messages: List<com.borizon.app.data.models.ChatMessage>,
+        keepCount: Int,
+    ): CompactionResult? {
+        if (messages.size > 5) return null
+
+        val userMsgs = messages.filter { it.role == "user" }
+        val assistantMsgs = messages.filter { it.role == "assistant" }
+
+        val summaryLine = when {
+            userMsgs.isNotEmpty() && assistantMsgs.isNotEmpty() ->
+                "User asked about: ${userMsgs.first().content.take(60)}. " +
+                "Assistant responded with information on this topic."
+            userMsgs.isNotEmpty() ->
+                "User requested: ${userMsgs.first().content.take(100)}"
+            else -> return null
+        }
+
+        val summaryMessage = com.borizon.app.data.models.ChatMessage(
+            role = "system",
+            content = "Previous conversation summary: $summaryLine",
+            type = com.borizon.app.data.models.MessageType.SYSTEM,
+        )
+
+        val lastMessages = messages.takeLast(keepCount)
+
+        return CompactionResult(
+            initialMessages = listOf(summaryMessage) + lastMessages,
+            messagesCompacted = messages.size - lastMessages.size,
         )
     }
 

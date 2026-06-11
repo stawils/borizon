@@ -9,6 +9,7 @@ import com.borizon.app.data.dao.MemoryDao
 import com.borizon.app.data.models.MemoryCategory
 import com.borizon.app.data.models.MemoryEntry
 import com.borizon.app.util.escapeLike
+import com.borizon.app.ai.harness.ToolResultCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
@@ -83,7 +84,9 @@ class MemoryTools(
                     isInProgress = false,
                     toolType = ToolType.MEMORY_SEARCH,
                 ))
-                mapOf("result" to "found", "count" to results.size.toString(), "memories" to formatted)
+                mapOf("result" to "found", "count" to results.size.toString(), "memories" to formatted).also {
+                    ToolResultCache.put("memorySearch", formatted.take(300))
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to search memories", e)
