@@ -2,6 +2,7 @@ package com.borizon.app.ai.harness
 
 import android.util.Log
 import com.borizon.app.util.debugLog
+import androidx.annotation.VisibleForTesting
 import com.borizon.app.ai.inference.ModelManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -156,6 +157,9 @@ Rules:
             messagesCompacted = dropped,
         )
     }
+
+    @VisibleForTesting
+    fun testFidelity(summary: String, transcript: String): Boolean = passesFidelityCheck(summary, transcript)
 
     /** No-op retained for call-site compatibility. */
     fun recordTurn() {}
