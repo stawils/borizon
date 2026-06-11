@@ -35,11 +35,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * REFLECT mode — Borizon's conversational persona.
  *
- * Uses persistent conversation (KV cache reuse via ModelManager).
- *
+ * Persistent conversation (KV cache reuse via ModelManager).
  * Persists every message to Room (Conversation + Message entities).
  * Reloads last conversation on init so chat history survives app restarts.
- * Uses persistent conversation (KV cache reuse via ModelManager).
+ *
+ * Concurrency hierarchy (outer → inner):
+ *   1. generationGuard (AtomicBoolean) — prevents concurrent reflect() calls
+ *   2. sendMutex (Mutex, in BorizonViewModel) — serializes all send ops
+ *   3. generationMutex (Mutex, in LiteRTInferenceEngine) — one inference at a time
+ *   4. conversationLock (Mutex) — conversation create/reset serialization
+ *
+ * Lock acquisition is always outer → inner. Never reverse.
  */
 class ReflectAgent(
     private val modelManager: ModelManager,
