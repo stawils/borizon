@@ -42,17 +42,17 @@ class NotificationTools(
     fun readRecentNotifications(
         @ToolParam(description = "Max 1-30 results") limit: Int,
         @ToolParam(description = "Search query, empty for recent") query: String = "",
-    ): Map<String, String> {
+    ): Map<String, String> = runBlocking(Dispatchers.IO) {
         ToolCallTracker.increment()
         if (!isListenerEnabled()) {
-            return mapOf("result" to "error", "error" to "Notification access is not enabled. Ask the user to enable it in Settings > Notification Access.")
+            return@runBlocking mapOf("result" to "error", "error" to "Notification access is not enabled. Ask the user to enable it in Settings > Notification Access.")
         }
         val actualLimit = limit.coerceIn(1, 30)
-        return try {
+        try {
             val results = if (query.isNotBlank()) {
-                runBlocking(Dispatchers.IO) { notificationDao.search(query.escapeLike()) }.take(actualLimit)
+                notificationDao.search(query.escapeLike()).take(actualLimit)
             } else {
-                runBlocking(Dispatchers.IO) { notificationDao.getRecent(actualLimit) }
+                notificationDao.getRecent(actualLimit)
             }
             if (results.isEmpty()) {
                 val hint = if (query.isNotBlank()) "matching '$query'" else "stored. Make sure notification access is enabled in Settings"

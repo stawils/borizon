@@ -34,10 +34,10 @@ class MemoryTools(
         @ToolParam(description = "Fact to remember") content: String,
         @ToolParam(description = "PREFERENCE, FACT, RELATIONSHIP, EVENT, SKILL") category: String = "FACT",
         @ToolParam(description = "0.0-1.0 importance") importance: Float = 0.5f,
-    ): Map<String, String> {
+    ): Map<String, String> = runBlocking(Dispatchers.IO) {
         ToolCallTracker.increment()
-        if (content.isBlank()) return mapOf("result" to "error", "error" to "Content is empty")
-        return try {
+        if (content.isBlank()) return@runBlocking mapOf("result" to "error", "error" to "Content is empty")
+        try {
             val cat = parseCategory(category)
             val convId = getActiveConversationId()
             val memory = MemoryEntry(
@@ -46,11 +46,9 @@ class MemoryTools(
                 importance = importance.coerceIn(0f, 1f),
                 sourceConversationId = if (convId > 0) convId else null,
             )
-            val id = runBlocking(Dispatchers.IO) {
-                val insertId = memoryDao.insert(memory)
-                memoryDao.pruneToMax()
-                insertId
-            }
+            val insertId = memoryDao.insert(memory)
+            memoryDao.pruneToMax()
+            val id = insertId
             actionChannel.trySend(BorizonAction.Progress(
                 label = "Remembered: $content",
                 isInProgress = false,
@@ -60,22 +58,22 @@ class MemoryTools(
             mapOf("result" to "saved", "id" to id.toString(), "content" to content)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save memory", e)
-            return mapOf("result" to "error", "error" to (e.message ?: "Failed to save"))
+            mapOf("result" to "error", "error" to (e.message ?: "Failed to save"))
         }
     }
 
     @Tool(description = "Search stored memories.")
     fun memorySearch(
         @ToolParam(description = "Keywords to search") query: String,
-    ): Map<String, String> {
+    ): Map<String, String> = runBlocking(Dispatchers.IO) {
         ToolCallTracker.increment()
-        if (query.isBlank()) return mapOf("result" to "error", "error" to "Query is empty")
-        return try {
-            val results = runBlocking(Dispatchers.IO) { memoryDao.search(query.escapeLike(), limit = 10) }
+        if (query.isBlank()) return@runBlocking mapOf("result" to "error", "error" to "Query is empty")
+        try {
+            val results = memoryDao.search(query.escapeLike(), limit = 10)
             if (results.isEmpty()) {
                 mapOf("result" to "empty", "message" to "No memories matching '$query'")
             } else {
-                try { runBlocking(Dispatchers.IO) { memoryDao.incrementAccessCounts(results.map { it.id }) } } catch (_: Exception) {}
+                try { memoryDao.incrementAccessCounts(results.map { it.id }) } catch (_: Exception) {}
                 val formatted = results.joinToString("\n") { m ->
                     "[${m.category}] ${m.content} (importance: ${"%.1f".format(m.importance)})"
                 }
@@ -97,25 +95,23 @@ class MemoryTools(
     @Tool(description = "Delete a memory by ID.")
     fun memoryForget(
         @ToolParam(description = "Memory ID to delete") memoryId: Int,
-    ): Map<String, String> {
+    ): Map<String, String> = runBlocking(Dispatchers.IO) {
         ToolCallTracker.increment()
-        return try {
+        try {
             val longId = memoryId.toLong()
-            val memory = runBlocking(Dispatchers.IO) { memoryDao.getById(longId) }
-            if (memory == null) {
-                return mapOf("result" to "not_found", "message" to "Memory #$memoryId not found")
-            }
-            runBlocking(Dispatchers.IO) { memoryDao.delete(longId) }
+            val memory = memoryDao.getById(longId)
+            if (memory == null) return@runBlocking mapOf("result" to "not_found", "message" to "Memory #$memoryId not found")
+            memoryDao.delete(longId)
             actionChannel.trySend(BorizonAction.Progress(
                 label = "Forgot: ${memory.content}",
                 isInProgress = false,
                 toolType = ToolType.MEMORY_FORGET,
             ))
             debugLog(TAG, "Forgot memory #$memoryId: ${memory.content}")
-            return mapOf("result" to "forgotten", "content" to memory.content)
+            mapOf("result" to "forgotten", "content" to memory.content)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to forget memory", e)
-            return mapOf("result" to "error", "error" to (e.message ?: "Delete failed"))
+            mapOf("result" to "error", "error" to (e.message ?: "Delete failed"))
         }
     }
 

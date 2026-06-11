@@ -7,6 +7,9 @@ import com.google.ai.edge.litertlm.Tool
 import com.google.ai.edge.litertlm.ToolParam
 import com.google.ai.edge.litertlm.ToolSet
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -71,12 +74,10 @@ class ShellTools(
     fun shellExecute(
         @ToolParam(description = "Command to run") command: String,
         @ToolParam(description = "Execution mode. Ignored — mode is determined automatically.") mode: String = "safe",
-    ): Map<String, String> {
+    ): Map<String, String> = runBlocking(Dispatchers.IO) {
         ToolCallTracker.increment()
         val displayCommand = command.take(60).let { if (command.length > 60) "$it..." else it }
 
-        // Determine effective mode: safe unless shell features are needed AND user confirms.
-        // The model's mode parameter is deliberately ignored to prevent bypass.
         val needsShell = requiresShell(command)
 
         actionChannel.trySend(BorizonAction.Progress(
@@ -87,21 +88,14 @@ class ShellTools(
         ))
 
         if (needsShell) {
-            // Shell mode: require explicit user confirmation.
-            // This is the security boundary — NOT the denylist.
-            // The denylist is defense-in-depth only.
             val confirm = BorizonAction.Confirm(
                 message = "Run shell command?\n$command"
             )
             actionChannel.trySend(confirm)
 
-            // Use tryReceive() for synchronous check — the model tool call is blocking.
-            // If no confirmation UI is available, deny the command.
             val approved = try {
-                kotlinx.coroutines.runBlocking {
-                    kotlinx.coroutines.withTimeout(60_000L) {
-                        confirm.result.await()
-                    }
+                withTimeout(60_000L) {
+                    confirm.result.await()
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Shell mode confirmation failed: ${e.message}")
@@ -115,7 +109,7 @@ class ShellTools(
                     toolType = ToolType.SHELL_EXECUTE,
                     detailDescription = "Cancelled by user",
                 ))
-                return mapOf(
+                return@runBlocking mapOf(
                     "result" to "error",
                     "exit_code" to "126",
                     "error" to "Shell command not approved by user. Try rewriting as a simple command without pipes or redirects.",
@@ -148,7 +142,7 @@ class ShellTools(
             detailDescription = if (result.isSuccess) "Done (${result.exitCode})" else "Failed (${result.exitCode})",
         ))
 
-        return if (result.isSuccess) {
+        if (result.isSuccess) {
             if (BuildConfig.DEBUG) Log.d(TAG, "Shell succeeded: $displayCommand")
             val output = result.output
             val truncated = if (output.length > 800) output.take(800) + "\n... (${output.length} chars total)" else output
