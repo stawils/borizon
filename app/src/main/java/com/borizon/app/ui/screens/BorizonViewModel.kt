@@ -164,8 +164,21 @@ class BorizonViewModel @Inject constructor(
             coreTools
         }
 
-    /** Reinitialize with visible loading state. Wraps all reinit paths. */
+    /**
+     * Reinitialize with visible loading state. Wraps all reinit paths.
+     *
+     * No engine means nothing to reinit — the skill/setting change was already
+     * persisted and will be picked up when the model is (re)loaded (see the guarded
+     * reinit calls in init/loadDownloadedModel/switchModel). Without this guard,
+     * initConversation() throws "Engine not loaded" and the uncaught exception in
+     * viewModelScope crashes the app — e.g. toggling a skill from Settings before
+     * the model has loaded, or while a download is in progress.
+     */
     private suspend fun safeReinit(tools: List<com.google.ai.edge.litertlm.ToolSet>) {
+        if (!modelManager.isModelLoaded()) {
+            Log.i(TAG, "Skipping reinit — model not loaded; change applies on next load")
+            return
+        }
         _isReinitializing.value = true
         try {
             reflectAgent.reinitWithTools(tools)
